@@ -157,6 +157,10 @@
         var last = recall('ea:last:' + BOOT.assessmentId.toUpperCase());
         if (last) {
           try { var who = JSON.parse(last); $('name').value = who.name || ''; $('email').value = who.email || ''; } catch (e) {}
+          if ($('email').value && recall(storageKey($('email').value))) {
+            $('startBtn').textContent = 'Continue';
+            $('startNote').textContent = 'You have already started this assessment. Your timer kept running while you were away.';
+          }
         }
         show('startScreen');
       }).catch(function () { message($('infoScreen'), 'We could not reach the server. Please refresh the page.', true); });
@@ -191,6 +195,9 @@
       state.attemptId = r.attemptId;
       state.questions = r.questions;
       state.endLocal = Date.now() + r.remainingMs; // server's remaining time; this computer's clock does not matter
+      // Warn only when the timer crosses 5 and 1 minutes, not when a short test or a resume begins below them.
+      state.warned5 = r.remainingMs <= 5 * 60000;
+      state.warned1 = r.remainingMs <= 60000;
       $('examTitle').textContent = r.title;
       renderQuestions(r.questions, r.answers || {});
       $('timerBar').classList.remove('hidden');

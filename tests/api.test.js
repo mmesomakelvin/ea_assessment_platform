@@ -1,0 +1,132 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+Object.assign(globalThis, require('../src/Logic.js'));
+const { createApi } = require('../src/Api.js');
+const { makeFakeStore } = require('./fakeStore.js');
+
+const T0 = new Date('2026-11-12T10:00:00Z');
+const plus = (ms) => new Date(T0.getTime() + ms);
+const MIN = 60000;
+
+function setup(overrides = {}) {
+  const store = makeFakeStore({
+    assessments: [{ id: 'AP-WK3', title: 'Week 3 Quiz', durationMinutes: 45, opensAt: null, closesAt: null, status: 'Open', ...overrides }],
+    questions: [
+      { assessmentId: 'AP-WK3', qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], answer: 'B', marks: 2 },
+      { assessmentId: 'AP-WK3', qNo: 2, type: 'SHORT', text: 'Define NPV', options: [], answer: '', marks: 5 },
+    ],
+  });
+  let clock = T0; let n = 0;
+  const api = createApi({ store, now: () => clock, newId: () => 'att-' + (++n) });
+  return { api, store, setClock: (d) => { clock = d; } };
+}
+const who = { assessmentId: 'AP-WK3', name: 'Ana Obi', email: 'ana@mail.com' };
+
+test('info returns title and duration', () => {
+  assert.deepEqual(setup().api.info('AP-WK3'), { ok: true, title: 'Week 3 Quiz', durationMinutes: 45 });
+  assert.deepEqual(setup().api.info('NOPE'), { ok: false, message: 'This assessment link is not valid.' });
+});
+
+test('start refuses closed assessment and bad details', () => {
+  assert.equal(setup({ status: 'Closed' }).api.start(who).message, 'This assessment is not open right now.');
+  assert.equal(setup().api.start({ ...who, name: '  ' }).message, 'Please enter your full name and a valid email address.');
+  assert.equal(setup().api.start({ ...who, email: 'ana@' }).message, 'Please enter your full name and a valid email address.');
+});
+
+test('start creates an attempt with full time and no answer key', () => {
+  const { api, store } = setup();
+  const r = api.start(who);
+  assert.equal(r.ok, true);
+  assert.equal(r.remainingMs, 45 * MIN);
+  assert.deepEqual(r.answers, {});
+  r.questions.forEach((q) => assert.equal('answer' in q, false));
+  assert.equal(store.attempts[0].status, 'IN_PROGRESS');
+  assert.equal(store.attempts[0].deadlineAt.toISOString(), '2026-11-12T10:45:00.000Z');
+});
+
+test('resume keeps the original deadline and restores answers', () => {
+  const { api, store, setClock } = setup();
+  const first = api.start(who);
+  setClock(plus(5 * MIN));
+  api.save({ attemptId: first.attemptId, answers: { '1': 'B' } });
+  setClock(plus(10 * MIN));
+  const again = api.start({ ...who, email: ' ANA@Mail.com ' });
+  assert.equal(again.attemptId, first.attemptId);
+  assert.equal(again.remainingMs, 35 * MIN);
+  assert.deepEqual(again.answers, { '1': 'B' });
+  assert.equal(store.attempts.length, 1);
+});
+
+test('start after deadline auto-submits saved answers', () => {
+  const { api, store, setClock } = setup();
+  const first = api.start(who);
+  setClock(plus(5 * MIN));
+  api.save({ attemptId: first.attemptId, answers: { '1': 'B' } });
+  setClock(plus(50 * MIN));
+  assert.deepEqual(api.start(who), { ok: false, message: 'Your time ran out. Your saved answers were submitted.' });
+  assert.equal(store.attempts[0].status, 'AUTO_SUBMITTED');
+  assert.equal(store.attempts[0].autoScore, 2);
+});
+
+test('start after submitting is refused', () => {
+  const { api } = setup();
+  const r = api.start(who);
+  api.submit({ attemptId: r.attemptId, answers: {} });
+  assert.equal(api.start(who).message, 'You have already submitted this assessment.');
+});
+
+test('save after grace is refused and changes nothing', () => {
+  const { api, store, setClock } = setup();
+  const r = api.start(who);
+  setClock(plus(45 * MIN + 30001));
+  assert.deepEqual(api.save({ attemptId: r.attemptId, answers: { '1': 'A' } }), { ok: false, timeUp: true });
+  assert.deepEqual(store.attempts[0].answers, {});
+});
+
+test('submit on time marks and records', () => {
+  const { api, store, setClock } = setup();
+  const r = api.start(who);
+  setClock(plus(20 * MIN));
+  assert.deepEqual(api.submit({ attemptId: r.attemptId, answers: { '1': 'b', '2': 'Net present value' } }), { ok: true, status: 'SUBMITTED' });
+  const a = store.attempts[0];
+  assert.equal(a.autoScore, 2); assert.equal(a.autoMax, 2); assert.equal(a.needsManual, true);
+  assert.equal(a.submittedAt.toISOString(), plus(20 * MIN).toISOString());
+  assert.equal(a.answersText, '1: b\n2: Net present value');
+});
+
+test('submit within grace counts the new answers', () => {
+  const { api, store, setClock } = setup();
+  const r = api.start(who);
+  setClock(plus(45 * MIN + 20000));
+  assert.equal(api.submit({ attemptId: r.attemptId, answers: { '1': 'B' } }).status, 'SUBMITTED');
+  assert.equal(store.attempts[0].autoScore, 2);
+});
+
+test('submit after grace keeps last autosave', () => {
+  const { api, store, setClock } = setup();
+  const r = api.start(who);
+  setClock(plus(10 * MIN));
+  api.save({ attemptId: r.attemptId, answers: { '1': 'A' } });
+  setClock(plus(47 * MIN));
+  assert.deepEqual(api.submit({ attemptId: r.attemptId, answers: { '1': 'B' } }),
+    { ok: true, status: 'AUTO_SUBMITTED', message: 'Time was up. Your answers saved before the deadline were submitted.' });
+  assert.deepEqual(store.attempts[0].answers, { '1': 'A' });
+  assert.equal(store.attempts[0].autoScore, 0);
+});
+
+test('second submit changes nothing', () => {
+  const { api, store, setClock } = setup();
+  const r = api.start(who);
+  api.submit({ attemptId: r.attemptId, answers: { '1': 'B' } });
+  const firstAt = store.attempts[0].submittedAt.toISOString();
+  setClock(plus(MIN));
+  assert.deepEqual(api.submit({ attemptId: r.attemptId, answers: { '1': 'A' } }), { ok: true, status: 'SUBMITTED' });
+  assert.equal(store.attempts[0].submittedAt.toISOString(), firstAt);
+  assert.deepEqual(store.attempts[0].answers, { '1': 'B' });
+});
+
+test('unknown attempt id', () => {
+  const msg = 'Attempt not found. Please reopen the assessment link.';
+  assert.equal(setup().api.save({ attemptId: 'x', answers: {} }).message, msg);
+  assert.equal(setup().api.submit({ attemptId: 'x', answers: {} }).message, msg);
+});

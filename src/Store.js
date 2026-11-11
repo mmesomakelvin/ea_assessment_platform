@@ -192,6 +192,15 @@ function sheetStore() {
       sheet.getRange(rowIndex, 12, 1, 3).setValues([full.slice(11, 14)]);
       return true;
     },
+    // Full-row write for a finished attempt, only if the row still says IN_PROGRESS.
+    finaliseAttempt: function (attempt) {
+      var sheet = ss.getSheetByName(TABS.attempts);
+      var rowIndex = attemptRowIndex(attempt.attemptId);
+      if (rowIndex === -1) return false;
+      if (String(sheet.getRange(rowIndex, 8).getValue()) !== 'IN_PROGRESS') return false;
+      sheet.getRange(rowIndex, 1, 1, HEADERS.Attempts.length).setValues([attemptToRow(attempt)]);
+      return true;
+    },
     inProgressAttempts: function () {
       return rows(TABS.attempts)
         .filter(function (r) { return cellText_(r[7]) === 'IN_PROGRESS'; })

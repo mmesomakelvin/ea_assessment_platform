@@ -64,10 +64,14 @@ function apiSubmit(payload) {
 
 /**
  * Runs every 5 minutes (installed by setup): closes tests whose time ran out but were never
- * submitted (tab closed, lost connection), using the last autosave. Safe for anyone to trigger,
- * because it only does what the deadline already requires.
+ * submitted (tab closed, lost connection), using the last autosave. Anyone can technically call
+ * it, but it only does what the deadline already requires, runs at most once a minute, and never
+ * touches a row that is no longer IN_PROGRESS.
  */
 function finaliseExpiredJob() {
+  var cache = CacheService.getScriptCache();
+  if (cache.get('finalise-ran')) return 0;
+  cache.put('finalise-ran', '1', 60);
   var count = buildApi_().finaliseExpired();
   if (count) console.log('Closed ' + count + ' expired attempt(s).');
   return count;

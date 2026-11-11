@@ -1,4 +1,4 @@
-// In-memory stand-in for sheetStore() (src/Store.js). Same seven methods.
+// In-memory stand-in for sheetStore() (src/Store.js). Same eight methods.
 // Stores and returns copies so tests can only change state through the API.
 function makeFakeStore({ assessments = [], questions = [] }) {
   const attempts = [];
@@ -17,6 +17,12 @@ function makeFakeStore({ assessments = [], questions = [] }) {
       stored.answers = copy(attempt.answers);
       stored.answersText = attempt.answersText;
       stored.lastSavedAt = copy(attempt.lastSavedAt);
+      return true;
+    },
+    finaliseAttempt: (attempt) => {
+      const i = attempts.findIndex((a) => a.attemptId === attempt.attemptId);
+      if (i === -1 || attempts[i].status !== 'IN_PROGRESS') return false;
+      attempts[i] = copy(attempt);
       return true;
     },
     inProgressAttempts: () => copy(attempts.filter((a) => a.status === 'IN_PROGRESS')),

@@ -62,7 +62,8 @@ function createApi(deps) {
     attempt.autoMax = g.autoMax;
     attempt.needsManual = g.needsManual;
     attempt.answersText = formatAnswersForSheet(questions, attempt.answers);
-    store.saveAttempt(attempt);
+    // Writes only if the row still says IN_PROGRESS right now, so two closers can never clash.
+    return store.finaliseAttempt(attempt);
   }
 
   function examPayload(assessment, questions, attempt, t) {
@@ -179,8 +180,7 @@ function createApi(deps) {
     store.inProgressAttempts().forEach(function (attempt) {
       if (acceptsWrites(attempt, t)) return;
       if (!questionsFor[attempt.assessmentId]) questionsFor[attempt.assessmentId] = store.getQuestions(attempt.assessmentId);
-      finalise(attempt, questionsFor[attempt.assessmentId], 'AUTO_SUBMITTED', t);
-      count++;
+      if (finalise(attempt, questionsFor[attempt.assessmentId], 'AUTO_SUBMITTED', t)) count++;
     });
     return count;
   }

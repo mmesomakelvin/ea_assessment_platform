@@ -233,3 +233,16 @@ test('shuffle setting gives each student a fixed shuffled order', () => {
   assert.deepEqual(api.start({ ...who, resumeToken: r.attemptId }).questions, r.questions);
   assert.deepEqual(setup().api.start(who).questions[0].options.map((o) => o.letter), ['A', 'B', 'C', 'D']);
 });
+
+test('finaliseExpired never overwrites a row that was submitted after the job read it', () => {
+  const { api, store, setClock } = setup();
+  api.start(who);
+  setClock(plus(45 * MIN + 30001));
+  const staleList = store.inProgressAttempts();
+  store.attempts[0].status = 'SUBMITTED'; // a submit landed between the job's read and its write
+  store.attempts[0].autoScore = 2;
+  store.inProgressAttempts = () => staleList;
+  assert.equal(api.finaliseExpired(), 0);
+  assert.equal(store.attempts[0].status, 'SUBMITTED');
+  assert.equal(store.attempts[0].autoScore, 2);
+});

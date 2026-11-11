@@ -61,7 +61,7 @@ test('publicQuestions hides the answer key', () => {
   const pq = L.publicQuestions(QS);
   assert.equal(pq.length, 3);
   pq.forEach((q) => assert.equal('answer' in q, false));
-  assert.deepEqual(pq[0], { qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], marks: 2 });
+  assert.deepEqual(pq[0], { qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], marks: 2, section: '' });
 });
 
 test('gradeAnswers marks MCQs ignoring case/space and flags free text', () => {

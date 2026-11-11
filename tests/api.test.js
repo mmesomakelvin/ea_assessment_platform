@@ -50,11 +50,34 @@ test('resume keeps the original deadline and restores answers', () => {
   setClock(plus(5 * MIN));
   api.save({ attemptId: first.attemptId, answers: { '1': 'B' } });
   setClock(plus(10 * MIN));
-  const again = api.start({ ...who, email: ' ANA@Mail.com ' });
+  const again = api.start({ ...who, email: ' ANA@Mail.com ', resumeToken: first.attemptId });
   assert.equal(again.attemptId, first.attemptId);
   assert.equal(again.remainingMs, 35 * MIN);
   assert.deepEqual(again.answers, { '1': 'B' });
   assert.equal(store.attempts.length, 1);
+});
+
+const ANOTHER_DEVICE = 'This email has already started this assessment on another device or browser. Please continue there, or ask your instructor to allow a new device.';
+
+test('someone else typing the same email cannot open the attempt', () => {
+  const { api, setClock } = setup();
+  const first = api.start(who);
+  api.save({ attemptId: first.attemptId, answers: { '1': 'B' } });
+  setClock(plus(MIN));
+  assert.deepEqual(api.start(who), { ok: false, message: ANOTHER_DEVICE });
+  assert.deepEqual(api.start({ ...who, resumeToken: 'guess' }), { ok: false, message: ANOTHER_DEVICE });
+});
+
+test('teacher can allow one new device, which keeps the original deadline', () => {
+  const { api, store, setClock } = setup();
+  const first = api.start(who);
+  store.attempts[0].allowNewDevice = true;
+  setClock(plus(10 * MIN));
+  const r = api.start(who);
+  assert.equal(r.attemptId, first.attemptId);
+  assert.equal(r.remainingMs, 35 * MIN);
+  assert.equal(store.attempts[0].allowNewDevice, false);
+  assert.equal(api.start(who).message, ANOTHER_DEVICE);
 });
 
 test('start after deadline auto-submits saved answers', () => {

@@ -48,7 +48,7 @@ function byQNo(questions) {
 // What the student's browser is allowed to see: everything except the answer key.
 function publicQuestions(questions) {
   return byQNo(questions).map(function (q) {
-    return { qNo: q.qNo, type: q.type, text: q.text, options: q.options, marks: q.marks };
+    return { qNo: q.qNo, type: q.type, text: q.text, options: q.options, marks: q.marks, section: q.section || '' };
   });
 }
 

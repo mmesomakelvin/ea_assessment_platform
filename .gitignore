@@ -1,2 +1,3 @@
 node_modules/
 .superpowers/
+src/Seed_*.js

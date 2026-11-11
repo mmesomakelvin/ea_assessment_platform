@@ -13,6 +13,7 @@ var MESSAGES = {
   timeRanOut: 'Your time ran out. Your saved answers were submitted.',
   attemptNotFound: 'Attempt not found. Please reopen the assessment link.',
   lateSubmit: 'Time was up. Your answers saved before the deadline were submitted.',
+  anotherDevice: 'This email has already started this assessment on another device or browser. Please continue there, or ask your instructor to allow a new device.',
 };
 
 // Keep only a flat { "qNo": "text" } object, whatever the browser sent.
@@ -77,6 +78,13 @@ function createApi(deps) {
         finalise(existing, questions, 'AUTO_SUBMITTED', t);
         return { ok: false, message: MESSAGES.timeRanOut };
       }
+      // Only the browser that started the attempt holds its id. Anyone else typing the same
+      // email is refused unless the teacher set AllowNewDevice to Yes (used once, then cleared).
+      if (String(p.resumeToken || '') !== existing.attemptId) {
+        if (!existing.allowNewDevice) return { ok: false, message: MESSAGES.anotherDevice };
+        existing.allowNewDevice = false;
+        store.saveAttempt(existing);
+      }
       return examPayload(a, questions, existing, t);
     }
 
@@ -97,6 +105,7 @@ function createApi(deps) {
       answers: {},
       answersText: formatAnswersForSheet(questions, {}),
       lastSavedAt: null,
+      allowNewDevice: false,
     };
     store.saveAttempt(attempt);
     return examPayload(a, questions, attempt, t);

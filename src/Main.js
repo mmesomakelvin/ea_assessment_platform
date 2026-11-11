@@ -63,6 +63,15 @@ function apiSubmit(payload) {
 
 // ---------- Teacher tools (run from the Apps Script editor) ----------
 
+// The student page can technically call any public function, so teacher tools refuse to run
+// unless the person running them is the script owner (anonymous visitors have no email here).
+function requireOwner_() {
+  var active = Session.getActiveUser().getEmail();
+  if (!active || active !== Session.getEffectiveUser().getEmail()) {
+    throw new Error('Only the script owner can run this from the Apps Script editor.');
+  }
+}
+
 var DEMO_ASSESSMENT_ = ['DEMO', 'Demo Quiz', 5, '', '', 'Open'];
 var DEMO_QUESTIONS_ = [
   ['DEMO', 1, 'MCQ', 'What is 15% of 200?', '20', '30', '35', '40', 'B', 1, 'Section A: Numbers'],
@@ -72,6 +81,7 @@ var DEMO_QUESTIONS_ = [
 
 /** Creates the three tabs, the demo assessment and any SEED_ASSESSMENTS. Safe to run again. */
 function setup() {
+  requireOwner_();
   var ss = SpreadsheetApp.getActive();
   if (!ss) {
     var props = PropertiesService.getScriptProperties();
@@ -119,6 +129,7 @@ function addAssessmentIfMissing_(ss, seed) {
 
 /** End-to-end check against the real Sheet using the DEMO assessment. Leaves one SUBMITTED row. */
 function smokeTest() {
+  requireOwner_();
   var api = buildApi_();
   var email = 'smoke+' + Date.now() + '@example.com';
   var info = api.info('DEMO');

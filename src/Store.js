@@ -12,13 +12,13 @@ var TABS = {
 };
 
 var HEADERS = {
-  Assessments: ['AssessmentId', 'Title', 'DurationMinutes', 'OpensAt', 'ClosesAt', 'Status', 'Shuffle'],
-  Questions: ['AssessmentId', 'QNo', 'Type', 'Question', 'OptionA', 'OptionB', 'OptionC', 'OptionD', 'Answer', 'Marks', 'Section'],
+  Assessments: ['AssessmentId', 'Title', 'DurationMinutes', 'OpensAt', 'ClosesAt', 'Status', 'Shuffle', 'Client'],
+  Questions: ['AssessmentId', 'QNo', 'Type', 'Question', 'OptionA', 'OptionB', 'OptionC', 'OptionD', 'Answer', 'Marks', 'Section', 'Client'],
   Attempts: ['AttemptId', 'AssessmentId', 'Name', 'Email', 'StartedAt', 'DeadlineAt', 'SubmittedAt', 'Status',
     'AutoScore', 'AutoMax', 'NeedsManualMarking', 'Answers', 'AnswersJSON', 'LastSavedAt', 'AllowNewDevice',
     'TimesLeftPage'],
   Roster: ['AssessmentId', 'Email', 'Name'],
-  Results: ['StudentId', 'FullName', 'Assessment', 'AssessmentId', 'Score', 'OutOf', 'Percent',
+  Results: ['StudentId', 'FullName', 'Client', 'Assessment', 'AssessmentId', 'Score', 'OutOf', 'Percent',
     'Status', 'SubmittedAt', 'TimesLeftPage', 'NeedsManualMarking', 'AttemptId'],
 };
 
@@ -56,6 +56,7 @@ function rowToAssessment(row) {
     closesAt: cellDate_(row[4]),
     status: cellText_(row[5]),
     shuffle: cellText_(row[6]).toLowerCase() === 'yes',
+    client: cellText_(row[7]),
   };
 }
 
@@ -76,7 +77,7 @@ function rowToQuestion(row) {
 
 // Question, OptionA to OptionD and Section are free text: keep them as text when written by code.
 function questionRowForSheet(row) {
-  return row.map(function (v, i) { return (i === 3 || (i >= 4 && i <= 7) || i === 10) ? asText(v) : v; });
+  return row.map(function (v, i) { return (i === 3 || (i >= 4 && i <= 7) || i >= 10) ? asText(v) : v; });
 }
 
 // Every assessment ships in two versions: the external one students get, and an always-open
@@ -119,12 +120,14 @@ function attemptToRow(a) {
 }
 
 // One readable line per finished test for the Results tab. The email is the student's ID.
-function resultRow(attempt, assessmentTitle, timesLeft) {
+// info is { title, client } from the assessment.
+function resultRow(attempt, info, timesLeft) {
   var percent = attempt.autoMax ? Math.round((attempt.autoScore / attempt.autoMax) * 1000) / 10 : '';
   return [
     asText(attempt.email),
     asText(attempt.name),
-    asText(assessmentTitle),
+    asText(info.client),
+    asText(info.title),
     attempt.assessmentId,
     attempt.autoScore,
     attempt.autoMax,
@@ -237,7 +240,7 @@ function sheetStore() {
       return true;
     },
     // Adds (or refreshes) the student's line in the Results tab.
-    saveResult: function (attempt, assessmentTitle) {
+    saveResult: function (attempt, info) {
       var attemptsSheet = ss.getSheetByName(TABS.attempts);
       var attemptRow = attemptRowIndex(attempt.attemptId);
       var timesLeft = attemptRow === -1 ? 0 : attemptsSheet.getRange(attemptRow, 16).getValue();
@@ -249,8 +252,11 @@ function sheetStore() {
         var ids = sheet.getRange(2, width, sheet.getLastRow() - 1, 1).getValues();
         for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === attempt.attemptId) at = i + 2;
       }
-      if (at === -1) at = sheet.getLastRow() + 1;
-      sheet.getRange(at, 1, 1, width).setValues([resultRow(attempt, assessmentTitle, timesLeft)]);
+      var line = resultRow(attempt, info, timesLeft);
+      // appendRow is atomic: when a whole class submits in the same second, every student still
+      // gets their own line (a computed "last row + 1" could be taken by two students at once).
+      if (at === -1) sheet.appendRow(line);
+      else sheet.getRange(at, 1, 1, width).setValues([line]);
     },
     rosterFor: function (assessmentId) {
       return rosterEmails(rows(TABS.roster), assessmentId);

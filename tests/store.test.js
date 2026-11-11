@@ -5,7 +5,8 @@ const S = require('../src/Store.js');
 test('rowToAssessment maps cells and blank dates to null', () => {
   const opens = new Date('2026-11-12T09:00:00Z');
   assert.deepEqual(S.rowToAssessment([' AP-WK3 ', 'Week 3 Quiz', 45, opens, '', 'Open']),
-    { id: 'AP-WK3', title: 'Week 3 Quiz', durationMinutes: 45, opensAt: opens, closesAt: null, status: 'Open', shuffle: false });
+    { id: 'AP-WK3', title: 'Week 3 Quiz', durationMinutes: 45, opensAt: opens, closesAt: null, status: 'Open', shuffle: false, client: '' });
+  assert.equal(S.rowToAssessment(['X', 'T', 5, '', '', 'Open', '', ' BAS Group ']).client, 'BAS Group');
   assert.equal(S.rowToAssessment(['X', 'T', 5, '', '', 'Open', ' yes ']).shuffle, true);
 });
 
@@ -61,11 +62,11 @@ test('questionRowForSheet keeps formulas like =PMT(...) as visible text', () => 
 
 test('internalTestCopy makes an open [INTERNAL TEST] twin with an unguessable id and the same questions', () => {
   const seed = {
-    assessment: ['BAS-INT', 'BAS Intermediate', 60, '', '', 'Closed', 'Yes'],
+    assessment: ['BAS-INT', 'BAS Intermediate', 60, '', '', 'Closed', 'Yes', 'BAS Group'],
     questions: [['BAS-INT', 1, 'MCQ', 'Q?', 'a', 'b', '', '', 'A', 1, 'Section A']],
   };
   const copy = S.internalTestCopy(seed, '7f3a9c21e4');
-  assert.deepEqual(copy.assessment, ['BAS-INT-TEST-7f3a9c21e4', '[INTERNAL TEST] BAS Intermediate', 60, '', '', 'Open', 'Yes']);
+  assert.deepEqual(copy.assessment, ['BAS-INT-TEST-7f3a9c21e4', '[INTERNAL TEST] BAS Intermediate', 60, '', '', 'Open', 'Yes', 'BAS Group']);
   assert.deepEqual(copy.questions, [['BAS-INT-TEST-7f3a9c21e4', 1, 'MCQ', 'Q?', 'a', 'b', '', '', 'A', 1, 'Section A']]);
   assert.equal(S.isInternalCopyOf('bas-int-test-7f3a9c21e4', 'BAS-INT'), true);
   assert.equal(S.isInternalCopyOf('BAS-INT', 'BAS-INT'), false);
@@ -88,11 +89,14 @@ test('Attempts has a TimesLeftPage column after the 15 the system rewrites', () 
 
 test('resultRow gives a readable results line with the email as the student ID', () => {
   const done = { ...ATT, autoScore: 34, autoMax: 50, needsManual: false };
-  assert.deepEqual(S.resultRow(done, 'BAS Intermediate', 3), [
-    "'ana@mail.com", "'Ana Obi", "'BAS Intermediate", 'AP-WK3', 34, 50, 68, 'SUBMITTED', ATT.submittedAt, 3, 'No', 'att-1',
+  const info = { title: 'BAS Intermediate', client: 'BAS Group' };
+  assert.deepEqual(S.resultRow(done, info, 3), [
+    "'ana@mail.com", "'Ana Obi", "'BAS Group", "'BAS Intermediate", 'AP-WK3', 34, 50, 68, 'SUBMITTED', ATT.submittedAt, 3, 'No', 'att-1',
   ]);
-  assert.equal(S.resultRow({ ...done, autoScore: 0, autoMax: 0 }, 'T', 0)[6], '');
-  assert.equal(S.resultRow({ ...done, autoScore: 1, autoMax: 3 }, 'T', 0)[6], 33.3);
-  assert.deepEqual(S.HEADERS.Results, ['StudentId', 'FullName', 'Assessment', 'AssessmentId', 'Score', 'OutOf', 'Percent',
+  assert.equal(S.resultRow({ ...done, autoScore: 0, autoMax: 0 }, info, 0)[7], '');
+  assert.equal(S.resultRow({ ...done, autoScore: 1, autoMax: 3 }, info, 0)[7], 33.3);
+  assert.deepEqual(S.HEADERS.Results, ['StudentId', 'FullName', 'Client', 'Assessment', 'AssessmentId', 'Score', 'OutOf', 'Percent',
     'Status', 'SubmittedAt', 'TimesLeftPage', 'NeedsManualMarking', 'AttemptId']);
+  assert.equal(S.HEADERS.Assessments[7], 'Client');
+  assert.equal(S.HEADERS.Questions[11], 'Client');
 });

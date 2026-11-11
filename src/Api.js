@@ -66,7 +66,9 @@ function createApi(deps) {
     // Writes only if the row still says IN_PROGRESS right now, so two closers can never clash.
     if (!store.finaliseAttempt(attempt)) return false;
     var assessment = store.getAssessment(attempt.assessmentId);
-    store.saveResult(attempt, assessment ? assessment.title : attempt.assessmentId);
+    store.saveResult(attempt, assessment
+      ? { title: assessment.title, client: assessment.client || '' }
+      : { title: attempt.assessmentId, client: '' });
     return true;
   }
 

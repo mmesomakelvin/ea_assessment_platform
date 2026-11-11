@@ -11,7 +11,7 @@ const MIN = 60000;
 function setup(overrides = {}, roster = []) {
   const store = makeFakeStore({
     roster,
-    assessments: [{ id: 'AP-WK3', title: 'Week 3 Quiz', durationMinutes: 45, opensAt: null, closesAt: null, status: 'Open', ...overrides }],
+    assessments: [{ id: 'AP-WK3', title: 'Week 3 Quiz', durationMinutes: 45, opensAt: null, closesAt: null, status: 'Open', client: 'BAS Group', ...overrides }],
     questions: [
       { assessmentId: 'AP-WK3', qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], answer: 'B', marks: 2 },
       { assessmentId: 'AP-WK3', qNo: 2, type: 'SHORT', text: 'Define NPV', options: [], answer: '', marks: 5 },
@@ -279,8 +279,8 @@ test('every finished test gets one line in Results with the assessment title and
   setClock(plus(60 * MIN));
   api.finaliseExpired();
   assert.equal(store.results.length, 2);
-  assert.deepEqual(store.results.map((r) => [r.attemptId, r.title, r.status, r.autoScore, r.autoMax]), [
-    [a.attemptId, 'Week 3 Quiz', 'SUBMITTED', 2, 2],
-    [b.attemptId, 'Week 3 Quiz', 'AUTO_SUBMITTED', 0, 2],
+  assert.deepEqual(store.results.map((r) => [r.attemptId, r.client, r.title, r.status, r.autoScore, r.autoMax]), [
+    [a.attemptId, 'BAS Group', 'Week 3 Quiz', 'SUBMITTED', 2, 2],
+    [b.attemptId, 'BAS Group', 'Week 3 Quiz', 'AUTO_SUBMITTED', 0, 2],
   ]);
 });

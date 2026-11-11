@@ -9,8 +9,8 @@ function makeFakeStore({ assessments = [], questions = [], roster = [] }) {
     attempts,
     leaves,
     results,
-    saveResult: (attempt, title) => {
-      const line = { attemptId: attempt.attemptId, title, status: attempt.status, autoScore: attempt.autoScore, autoMax: attempt.autoMax };
+    saveResult: (attempt, info) => {
+      const line = { attemptId: attempt.attemptId, client: info.client, title: info.title, status: attempt.status, autoScore: attempt.autoScore, autoMax: attempt.autoMax };
       const i = results.findIndex((r) => r.attemptId === attempt.attemptId);
       if (i === -1) results.push(line); else results[i] = line;
     },

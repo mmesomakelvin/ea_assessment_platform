@@ -27,6 +27,7 @@ flowchart LR
 | OpensAt | Optional. Earliest time anyone can start. Leave blank for "any time". | `2026-11-20 09:00` |
 | ClosesAt | Optional. Hard stop. Late starters get less time, never past this. Leave blank for "no hard stop". | `2026-11-20 12:00` |
 | Status | `Open` lets students start. `Closed` stops new starts. | `Closed` |
+| Client | Who the assessment is for. Shown in `Results` so you can filter by client. | `BAS Group` |
 | Shuffle | `Yes` gives every student their own order of questions (kept within each section) and of the A to D options. True/False always stays True then False. Blank or `No` keeps your order. | `Yes` |
 
 ### Two versions of every assessment
@@ -54,6 +55,7 @@ The random code stops students guessing the internal link and reading the questi
 | Answer | The correct letter for MCQ: `A`, `B`, `C` or `D`. Leave blank for SHORT and PARAGRAPH. |
 | Marks | Marks for the question. Blank means 1. |
 | Section | Optional heading shown above the question, such as `Section A: Credit Risk` |
+| Client | Label only, for people reading the Sheet (the system uses the Client on the Assessments tab) |
 
 Examples:
 
@@ -100,6 +102,7 @@ Find your web app address in the Apps Script editor under **Deploy > Manage depl
 |---|---|
 | StudentId | The student's email. This is their ID. |
 | FullName | The name they typed |
+| Client | Who the assessment was for, e.g. `BAS Group` |
 | Assessment, AssessmentId | Which assessment they took |
 | Score, OutOf, Percent | Marks from the multiple-choice questions |
 | Status | `SUBMITTED` (on time) or `AUTO_SUBMITTED` (time ran out) |

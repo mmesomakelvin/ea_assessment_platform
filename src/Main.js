@@ -92,7 +92,7 @@ function requireOwner_() {
   }
 }
 
-var DEMO_ASSESSMENT_ = ['DEMO', 'Demo Quiz', 5, '', '', 'Open', 'Yes'];
+var DEMO_ASSESSMENT_ = ['DEMO', 'Demo Quiz', 5, '', '', 'Open', 'Yes', 'Demo'];
 var DEMO_QUESTIONS_ = [
   ['DEMO', 1, 'MCQ', 'What is 15% of 200?', '20', '30', '35', '40', 'B', 1, 'Section A: Numbers'],
   ['DEMO', 2, 'MCQ', 'A secured loan carries no credit risk because the lender holds collateral.', 'True', 'False', '', '', 'B', 1, 'Section A: Numbers'],
@@ -125,7 +125,7 @@ function setup() {
   ss.getSheetByName('Assessments').getRange('D:E').setNumberFormat('yyyy-mm-dd hh:mm');
   ss.getSheetByName('Attempts').getRange('E:G').setNumberFormat('yyyy-mm-dd hh:mm:ss');
   ss.getSheetByName('Attempts').getRange('N:N').setNumberFormat('yyyy-mm-dd hh:mm:ss');
-  ss.getSheetByName('Results').getRange('I:I').setNumberFormat('yyyy-mm-dd hh:mm:ss');
+  ss.getSheetByName('Results').getRange('J:J').setNumberFormat('yyyy-mm-dd hh:mm:ss');
 
   // Each real assessment gets an internal test twin (always Open, unguessable id) beside the
   // external one students use.
@@ -173,10 +173,11 @@ function addAssessmentIfMissing_(ss, seed) {
   }
 
   aSheet.getRange(aSheet.getLastRow() + 1, 1, 1, HEADERS.Assessments.length)
-    .setValues([[id, asText(seed.assessment[1])].concat(seed.assessment.slice(2, 7))
+    .setValues([[id, asText(seed.assessment[1])].concat(seed.assessment.slice(2, 7), [asText(seed.assessment[7] || '')])
       .concat(['', '', '', '', '', '', ''].slice(0, Math.max(0, 7 - seed.assessment.length)))]);
   var qSheet = ss.getSheetByName('Questions');
-  var rows = seed.questions.map(questionRowForSheet);
+  var client = seed.assessment[7] || '';
+  var rows = seed.questions.map(function (row) { return questionRowForSheet(row.slice(0, 11).concat([client])); });
   qSheet.getRange(qSheet.getLastRow() + 1, 1, rows.length, HEADERS.Questions.length).setValues(rows);
   return true;
 }

@@ -41,8 +41,43 @@ function formatRemaining(ms) {
   return (h > 0 ? h + ':' : '') + pad(m) + ':' + pad(s);
 }
 
+function byQNo(questions) {
+  return questions.slice().sort(function (a, b) { return a.qNo - b.qNo; });
+}
+
+// What the student's browser is allowed to see: everything except the answer key.
+function publicQuestions(questions) {
+  return byQNo(questions).map(function (q) {
+    return { qNo: q.qNo, type: q.type, text: q.text, options: q.options, marks: q.marks };
+  });
+}
+
+function gradeAnswers(questions, answers) {
+  var result = { autoScore: 0, autoMax: 0, needsManual: false };
+  questions.forEach(function (q) {
+    if (q.type === 'MCQ') {
+      result.autoMax += q.marks;
+      var given = String(answers[String(q.qNo)] || '').trim().toUpperCase();
+      if (given !== '' && given === String(q.answer || '').trim().toUpperCase()) result.autoScore += q.marks;
+    } else {
+      result.needsManual = true;
+    }
+  });
+  return result;
+}
+
+function formatAnswersForSheet(questions, answers) {
+  return byQNo(questions).map(function (q) {
+    var a = answers[String(q.qNo)];
+    return q.qNo + ': ' + (a === undefined || String(a).trim() === '' ? '(blank)' : a);
+  }).join('\n');
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
+    publicQuestions: publicQuestions,
+    gradeAnswers: gradeAnswers,
+    formatAnswersForSheet: formatAnswersForSheet,
     GRACE_MS: GRACE_MS,
     normaliseEmail: normaliseEmail,
     isValidEmail: isValidEmail,

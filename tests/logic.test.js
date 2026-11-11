@@ -50,3 +50,27 @@ test('formatRemaining rounds up to whole seconds and never goes negative', () =>
   assert.equal(L.formatRemaining(0), '00:00');
   assert.equal(L.formatRemaining(-5000), '00:00');
 });
+
+const QS = [
+  { qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], answer: 'B', marks: 2 },
+  { qNo: 2, type: 'MCQ', text: 'Capital of Nigeria?', options: ['Lagos', 'Abuja', 'Kano', 'Enugu'], answer: 'B', marks: 1 },
+  { qNo: 3, type: 'SHORT', text: 'Define NPV', options: [], answer: '', marks: 5 },
+];
+
+test('publicQuestions hides the answer key', () => {
+  const pq = L.publicQuestions(QS);
+  assert.equal(pq.length, 3);
+  pq.forEach((q) => assert.equal('answer' in q, false));
+  assert.deepEqual(pq[0], { qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], marks: 2 });
+});
+
+test('gradeAnswers marks MCQs ignoring case/space and flags free text', () => {
+  assert.deepEqual(L.gradeAnswers(QS, { '1': ' b ', '2': 'A', '3': 'net present value' }),
+    { autoScore: 2, autoMax: 3, needsManual: true });
+  assert.deepEqual(L.gradeAnswers(QS.slice(0, 2), {}), { autoScore: 0, autoMax: 3, needsManual: false });
+});
+
+test('formatAnswersForSheet lists every question in order', () => {
+  assert.equal(L.formatAnswersForSheet(QS, { '3': 'Net present value', '1': 'B' }),
+    '1: B\n2: (blank)\n3: Net present value');
+});

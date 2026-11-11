@@ -5,7 +5,8 @@ const S = require('../src/Store.js');
 test('rowToAssessment maps cells and blank dates to null', () => {
   const opens = new Date('2026-11-12T09:00:00Z');
   assert.deepEqual(S.rowToAssessment([' AP-WK3 ', 'Week 3 Quiz', 45, opens, '', 'Open']),
-    { id: 'AP-WK3', title: 'Week 3 Quiz', durationMinutes: 45, opensAt: opens, closesAt: null, status: 'Open' });
+    { id: 'AP-WK3', title: 'Week 3 Quiz', durationMinutes: 45, opensAt: opens, closesAt: null, status: 'Open', shuffle: false });
+  assert.equal(S.rowToAssessment(['X', 'T', 5, '', '', 'Open', ' yes ']).shuffle, true);
 });
 
 test('rowToQuestion keeps option letters stable and normalises type, answer, marks', () => {
@@ -58,14 +59,17 @@ test('questionRowForSheet keeps formulas like =PMT(...) as visible text', () => 
     ['BAS-INT', 43, 'MCQ', "'Which formula?", "'=PMT(24%,3,-5000000)", "'b", '', '', 'D', 1, "'Section C"]);
 });
 
-test('internalTestCopy makes an open [INTERNAL TEST] twin with the same questions', () => {
+test('internalTestCopy makes an open [INTERNAL TEST] twin with an unguessable id and the same questions', () => {
   const seed = {
-    assessment: ['BAS-INT', 'BAS Intermediate', 60, '', '', 'Closed'],
+    assessment: ['BAS-INT', 'BAS Intermediate', 60, '', '', 'Closed', 'Yes'],
     questions: [['BAS-INT', 1, 'MCQ', 'Q?', 'a', 'b', '', '', 'A', 1, 'Section A']],
   };
-  const copy = S.internalTestCopy(seed);
-  assert.deepEqual(copy.assessment, ['BAS-INT-TEST', '[INTERNAL TEST] BAS Intermediate', 60, '', '', 'Open']);
-  assert.deepEqual(copy.questions, [['BAS-INT-TEST', 1, 'MCQ', 'Q?', 'a', 'b', '', '', 'A', 1, 'Section A']]);
+  const copy = S.internalTestCopy(seed, '7f3a9c21e4');
+  assert.deepEqual(copy.assessment, ['BAS-INT-TEST-7f3a9c21e4', '[INTERNAL TEST] BAS Intermediate', 60, '', '', 'Open', 'Yes']);
+  assert.deepEqual(copy.questions, [['BAS-INT-TEST-7f3a9c21e4', 1, 'MCQ', 'Q?', 'a', 'b', '', '', 'A', 1, 'Section A']]);
+  assert.equal(S.isInternalCopyOf('bas-int-test-7f3a9c21e4', 'BAS-INT'), true);
+  assert.equal(S.isInternalCopyOf('BAS-INT', 'BAS-INT'), false);
+  assert.equal(S.isInternalCopyOf('BAS-INT-2-TEST-abc', 'BAS-INT'), false);
   assert.equal(seed.assessment[0], 'BAS-INT');
   assert.equal(seed.questions[0][0], 'BAS-INT');
 });

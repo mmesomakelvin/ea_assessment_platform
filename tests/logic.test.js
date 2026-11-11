@@ -61,7 +61,9 @@ test('publicQuestions hides the answer key', () => {
   const pq = L.publicQuestions(QS);
   assert.equal(pq.length, 3);
   pq.forEach((q) => assert.equal('answer' in q, false));
-  assert.deepEqual(pq[0], { qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], marks: 2, section: '' });
+  assert.deepEqual(pq[0], { qNo: 1, type: 'MCQ', text: '2+2?', marks: 2, section: '', maxLength: 1,
+    options: [{ letter: 'A', text: '3' }, { letter: 'B', text: '4' }, { letter: 'C', text: '5' }, { letter: 'D', text: '6' }] });
+  assert.deepEqual(pq[2].options, []);
 });
 
 test('gradeAnswers marks MCQs ignoring case/space and flags free text', () => {
@@ -79,4 +81,39 @@ test('safeJsonForScript cannot close the script tag', () => {
   const out = L.safeJsonForScript({ assessmentId: '</script><script>alert(1)</script>', resumeToken: 'abc' });
   assert.equal(out.includes('<'), false);
   assert.deepEqual(JSON.parse(out), { assessmentId: '</script><script>alert(1)</script>', resumeToken: 'abc' });
+});
+
+test('a blank middle option is dropped but the other letters stay the same', () => {
+  const pq = L.publicQuestions([{ qNo: 1, type: 'MCQ', text: 'Pick', options: ['x', '', 'z'], answer: 'C', marks: 1, section: '' }]);
+  assert.deepEqual(pq[0].options, [{ letter: 'A', text: 'x' }, { letter: 'C', text: 'z' }]);
+});
+
+const MANY = Array.from({ length: 10 }, (_, i) => ({
+  qNo: i + 1, type: 'MCQ', text: 'Q' + (i + 1), options: ['w', 'x', 'y', 'z'], answer: 'A', marks: 1, section: i < 5 ? 'S1' : 'S2',
+}));
+
+test('shuffled question order is fixed per student, differs between students, keeps sections together', () => {
+  const a1 = L.publicQuestions(MANY, 'att-1').map((q) => q.qNo);
+  const a2 = L.publicQuestions(MANY, 'att-2').map((q) => q.qNo);
+  assert.deepEqual(L.publicQuestions(MANY, 'att-1').map((q) => q.qNo), a1);
+  assert.notDeepEqual(a1, a2);
+  assert.notDeepEqual(a1, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.deepEqual(a1.slice(0, 5).sort((x, y) => x - y), [1, 2, 3, 4, 5]);
+  assert.deepEqual(a1.slice(5).sort((x, y) => x - y), [6, 7, 8, 9, 10]);
+});
+
+test('shuffled options keep their original letters, True/False stays in order', () => {
+  const pq = L.publicQuestions(MANY, 'att-1');
+  pq.forEach((q) => assert.deepEqual(q.options.map((o) => o.letter).sort(), ['A', 'B', 'C', 'D']));
+  pq.forEach((q) => q.options.forEach((o) => assert.equal(o.text, { A: 'w', B: 'x', C: 'y', D: 'z' }[o.letter])));
+  assert.ok(pq.some((q) => q.options.map((o) => o.letter).join('') !== 'ABCD'));
+  const tf = L.publicQuestions([{ qNo: 1, type: 'MCQ', text: 't', options: ['True', 'False'], answer: 'A', marks: 1, section: '' }], 'att-1');
+  assert.deepEqual(tf[0].options, [{ letter: 'A', text: 'True' }, { letter: 'B', text: 'False' }]);
+});
+
+test('answerLimits caps written answers so all answers fit in one Sheet cell', () => {
+  assert.deepEqual(L.answerLimits(QS), { '1': 1, '2': 1, '3': 500 });
+  const paras = [1, 2, 3, 4].map((n) => ({ qNo: n, type: 'PARAGRAPH', text: 'p', options: [], answer: '', marks: 5 }));
+  assert.deepEqual(L.answerLimits(paras), { '1': 5000, '2': 5000, '3': 5000, '4': 5000 });
+  assert.deepEqual(L.answerLimits([paras[0]]), { '1': 10000 });
 });

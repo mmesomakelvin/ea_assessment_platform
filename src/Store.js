@@ -10,7 +10,7 @@ var TABS = {
 };
 
 var HEADERS = {
-  Assessments: ['AssessmentId', 'Title', 'DurationMinutes', 'OpensAt', 'ClosesAt', 'Status'],
+  Assessments: ['AssessmentId', 'Title', 'DurationMinutes', 'OpensAt', 'ClosesAt', 'Status', 'Shuffle'],
   Questions: ['AssessmentId', 'QNo', 'Type', 'Question', 'OptionA', 'OptionB', 'OptionC', 'OptionD', 'Answer', 'Marks', 'Section'],
   Attempts: ['AttemptId', 'AssessmentId', 'Name', 'Email', 'StartedAt', 'DeadlineAt', 'SubmittedAt', 'Status',
     'AutoScore', 'AutoMax', 'NeedsManualMarking', 'Answers', 'AnswersJSON', 'LastSavedAt', 'AllowNewDevice'],
@@ -45,6 +45,7 @@ function rowToAssessment(row) {
     opensAt: cellDate_(row[3]),
     closesAt: cellDate_(row[4]),
     status: cellText_(row[5]),
+    shuffle: cellText_(row[6]).toLowerCase() === 'yes',
   };
 }
 
@@ -69,13 +70,21 @@ function questionRowForSheet(row) {
 }
 
 // Every assessment ships in two versions: the external one students get, and an always-open
-// internal twin (<ID>-TEST) for staff to try, so test attempts never mix with real results.
-function internalTestCopy(seed) {
-  var id = seed.assessment[0] + '-TEST';
+// internal twin for staff. The twin's id ends in a random code (e.g. BAS-INT-TEST-7f3a9c21e4)
+// so students cannot guess it and read the questions before the real one opens.
+function internalTestCopy(seed, suffix) {
+  var id = seed.assessment[0] + '-TEST-' + suffix;
   return {
-    assessment: [id, '[INTERNAL TEST] ' + seed.assessment[1]].concat(seed.assessment.slice(2, 5), ['Open']),
+    assessment: [id, '[INTERNAL TEST] ' + seed.assessment[1]]
+      .concat(seed.assessment.slice(2, 5), ['Open'], seed.assessment.slice(6)),
     questions: seed.questions.map(function (row) { return [id].concat(row.slice(1)); }),
   };
+}
+
+function isInternalCopyOf(candidateId, baseId) {
+  var prefix = cellText_(baseId).toUpperCase() + '-TEST-';
+  var c = cellText_(candidateId).toUpperCase();
+  return c.indexOf(prefix) === 0 && c.length > prefix.length && c.slice(prefix.length).indexOf('-') === -1;
 }
 
 function attemptToRow(a) {
@@ -172,6 +181,22 @@ function sheetStore() {
       var found = rows(TABS.attempts).filter(function (r) { return String(r[0]) === attemptId; })[0];
       return found ? rowToAttempt(found) : null;
     },
+    // Autosave writes only Answers, AnswersJSON and LastSavedAt (columns L:N), and only while the
+    // row still says IN_PROGRESS, so a slow autosave can never undo a submission.
+    saveAnswers: function (attempt) {
+      var sheet = ss.getSheetByName(TABS.attempts);
+      var rowIndex = attemptRowIndex(attempt.attemptId);
+      if (rowIndex === -1) return false;
+      if (String(sheet.getRange(rowIndex, 8).getValue()) !== 'IN_PROGRESS') return false;
+      var full = attemptToRow(attempt);
+      sheet.getRange(rowIndex, 12, 1, 3).setValues([full.slice(11, 14)]);
+      return true;
+    },
+    inProgressAttempts: function () {
+      return rows(TABS.attempts)
+        .filter(function (r) { return cellText_(r[7]) === 'IN_PROGRESS'; })
+        .map(rowToAttempt);
+    },
     saveAttempt: function (attempt) {
       var sheet = ss.getSheetByName(TABS.attempts);
       var rowIndex = attemptRowIndex(attempt.attemptId);
@@ -189,6 +214,7 @@ if (typeof module !== 'undefined') {
     rowToQuestion: rowToQuestion,
     questionRowForSheet: questionRowForSheet,
     internalTestCopy: internalTestCopy,
+    isInternalCopyOf: isInternalCopyOf,
     attemptToRow: attemptToRow,
     rowToAttempt: rowToAttempt,
   };

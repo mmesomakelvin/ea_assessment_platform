@@ -27,6 +27,7 @@ flowchart LR
 | OpensAt | Optional. Earliest time anyone can start. Leave blank for "any time". | `2026-11-20 09:00` |
 | ClosesAt | Optional. Hard stop. Late starters get less time, never past this. Leave blank for "no hard stop". | `2026-11-20 12:00` |
 | Status | `Open` lets students start. `Closed` stops new starts. | `Closed` |
+| Shuffle | `Yes` gives every student their own order of questions (kept within each section) and of the A to D options. True/False always stays True then False. Blank or `No` keeps your order. | `Yes` |
 
 ### Two versions of every assessment
 
@@ -34,10 +35,12 @@ Every assessment is built twice, with identical questions:
 
 | Version | AssessmentId | Status | Who uses it |
 |---|---|---|---|
-| **Internal test** | `<ID>-TEST`, e.g. `BAS-INT-TEST` | Always `Open` | Staff, to try the questions, timer and marking before students see it |
+| **Internal test** | `<ID>-TEST-<random code>`, e.g. `BAS-INT-TEST-7f3a9c21e4` | Always `Open` | Staff, to try the questions, timer and marking before students see it |
 | **External** | `<ID>`, e.g. `BAS-INT` | `Closed` until you are ready | Students |
 
-Staff results land in `Attempts` under the `-TEST` id, so they never mix with student results, and testing with your own email does not lock you out of the real one. `setup` creates the `-TEST` twin automatically for every assessment loaded from a seed file. If you add an assessment by hand, add a second row with `-TEST` on the id and copy its question rows the same way.
+The random code stops students guessing the internal link and reading the questions before the real assessment opens. Copy the exact id from the `Assessments` tab (the `setup` log also lists them). Staff results land in `Attempts` under that id, so they never mix with student results, and testing with your own email does not lock you out of the real one.
+
+`setup` creates the internal twin automatically for every assessment loaded from a seed file. If you add an assessment by hand, add a second row whose id is the real id plus `-TEST-` plus a few random letters and numbers (for example `AP-WK3-TEST-k29xq7`), and copy its question rows with that id.
 
 ### 2. Add the questions (tab `Questions`, one row per question)
 
@@ -100,15 +103,20 @@ To mark written answers, read the `Answers` column and add your marks in a new c
 
 For safety, only the browser that started a test can continue it, so nobody can open a classmate's test by typing their email. If a student's laptop dies and they need to continue on another device, type `Yes` in their `AllowNewDevice` cell. They can then continue on the new device once. **Their timer does not reset**: it kept running the whole time.
 
+### Students who close the tab and never come back
+
+Every 5 minutes the system closes any test whose time has run out, using the student's last autosave. Their row changes to `AUTO_SUBMITTED` with a score, so you never have to chase unfinished rows.
+
 ### Limits
 
 - About 60 to 80 students can sit a test at the same moment. For bigger groups, run it in batches.
 - Answers are saved every 60 seconds and on submit. If a student's internet drops right at the end, their last autosave counts.
 - A submission up to 30 seconds after the deadline is accepted, to cover slow networks.
+- Written answers have a length limit so everything fits in the Sheet: `SHORT` answers up to 500 characters; `PARAGRAPH` answers up to 10,000 characters, shared out when a test has many written questions (20,000 characters in total across them). The answer box simply stops accepting text at the limit.
 
 ## First-time setup (done once)
 
-1. In the Apps Script editor, open `Main.gs`, choose `setup` in the function dropdown and click **Run**. Approve the permissions. This creates the `Assessments`, `Questions` and `Attempts` tabs (and an "EA Assessments" Sheet if the script is not attached to one), plus a 5-minute `DEMO` quiz.
+1. In the Apps Script editor, open `Main.gs`, choose `setup` in the function dropdown and click **Run**. Approve the permissions. This creates the `Assessments`, `Questions` and `Attempts` tabs (and an "EA Assessments" Sheet if the script is not attached to one), a 5-minute `DEMO` quiz, the internal test twins, sets the Sheet to Lagos time and switches on the 5-minute clean-up of abandoned tests. Running it again is safe: it only adds what is missing.
 2. Choose `smokeTest` and click **Run**. It should end with "Smoke test passed" and add one test row to `Attempts` (safe to delete).
 3. Try the demo yourself: open your web app link with `?a=DEMO` on the end.
 

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 Object.assign(globalThis, require('../src/Logic.js'));
-const { createApi } = require('../src/Api.js');
+const { createApi, cleanAnswers, runGuarded } = require('../src/Api.js');
 const { makeFakeStore } = require('./fakeStore.js');
 
 const T0 = new Date('2026-11-12T10:00:00Z');
@@ -114,7 +114,7 @@ test('submit on time marks and records', () => {
   const a = store.attempts[0];
   assert.equal(a.autoScore, 2); assert.equal(a.autoMax, 2); assert.equal(a.needsManual, true);
   assert.equal(a.submittedAt.toISOString(), plus(20 * MIN).toISOString());
-  assert.equal(a.answersText, '1: b\n2: Net present value');
+  assert.equal(a.answersText, '1: B\n2: Net present value');
 });
 
 test('submit within grace counts the new answers', () => {
@@ -152,4 +152,84 @@ test('unknown attempt id', () => {
   const msg = 'Attempt not found. Please reopen the assessment link.';
   assert.equal(setup().api.save({ attemptId: 'x', answers: {} }).message, msg);
   assert.equal(setup().api.submit({ attemptId: 'x', answers: {} }).message, msg);
+});
+
+test('a slow autosave that read the attempt before submit cannot undo the submission', () => {
+  const { api, store, setClock } = setup();
+  const r = api.start(who);
+  const staleCopy = store.getAttempt(r.attemptId);
+  setClock(plus(10 * MIN));
+  api.submit({ attemptId: r.attemptId, answers: { '1': 'B' } });
+  const realGet = store.getAttempt;
+  store.getAttempt = () => staleCopy; // the autosave read the row while it was still IN_PROGRESS
+  api.save({ attemptId: r.attemptId, answers: { '1': 'A' } });
+  store.getAttempt = realGet;
+  assert.equal(store.attempts[0].status, 'SUBMITTED');
+  assert.equal(store.attempts[0].autoScore, 2);
+  assert.notEqual(store.attempts[0].submittedAt, null);
+});
+
+test('finaliseExpired closes abandoned attempts using their last autosave', () => {
+  const { api, store, setClock } = setup();
+  const gone = api.start(who);
+  api.save({ attemptId: gone.attemptId, answers: { '1': 'B' } });
+  const done = api.start({ ...who, email: 'done@mail.com' });
+  api.submit({ attemptId: done.attemptId, answers: {} });
+  setClock(plus(40 * MIN));
+  const late = api.start({ ...who, email: 'late@mail.com' });
+  setClock(plus(45 * MIN + 30001));
+  assert.equal(api.finaliseExpired(), 1);
+  const byEmail = (e) => store.attempts.find((a) => a.email === e);
+  assert.equal(byEmail('ana@mail.com').status, 'AUTO_SUBMITTED');
+  assert.equal(byEmail('ana@mail.com').autoScore, 2);
+  assert.equal(byEmail('done@mail.com').status, 'SUBMITTED');
+  assert.equal(byEmail('late@mail.com').status, 'IN_PROGRESS');
+  assert.ok(late.ok);
+});
+
+test('cleanAnswers keeps only real questions, valid letters and safe lengths', () => {
+  const qs = [
+    { qNo: 1, type: 'MCQ', text: 'm', options: ['a', 'b'], answer: 'A', marks: 1 },
+    { qNo: 2, type: 'SHORT', text: 's', options: [], answer: '', marks: 1 },
+    { qNo: 3, type: 'PARAGRAPH', text: 'p', options: [], answer: '', marks: 1 },
+  ];
+  const out = cleanAnswers({ '1': ' b ', '2': 'x'.repeat(600), '3': 'y'.repeat(12000), '99': 'junk' }, qs);
+  assert.deepEqual(Object.keys(out).sort(), ['1', '2', '3']);
+  assert.equal(out['1'], 'B');
+  assert.equal(out['2'].length, 500);
+  assert.equal(out['3'].length, 10000);
+  assert.deepEqual(cleanAnswers({ '1': 'E' }, qs), {});
+  assert.deepEqual(cleanAnswers('nonsense', qs), {});
+});
+
+test('runGuarded turns a crash into a retryable message', () => {
+  const logged = [];
+  assert.deepEqual(runGuarded(() => { throw new Error('Sheets timed out'); }, (e) => logged.push(e.message)),
+    { ok: false, retry: true, message: 'Something went wrong. Please try again.' });
+  assert.deepEqual(logged, ['Sheets timed out']);
+  assert.deepEqual(runGuarded(() => ({ ok: true }), () => {}), { ok: true });
+});
+
+test('start checks for duplicates and inserts inside the lock', () => {
+  const { store } = setup();
+  let inLock = false; let locks = 0; const savedInLock = [];
+  const realSave = store.saveAttempt;
+  store.saveAttempt = (a) => { savedInLock.push(inLock); realSave(a); };
+  const api = createApi({ store, now: () => T0, newId: () => 'att-x',
+    withLock: (fn) => { locks++; inLock = true; try { return fn(); } finally { inLock = false; } } });
+  assert.equal(api.start(who).ok, true);
+  assert.equal(locks, 1);
+  assert.deepEqual(savedInLock, [true]);
+});
+
+test('shuffle setting gives each student a fixed shuffled order', () => {
+  const { api } = setup({ shuffle: true });
+  const r = api.start(who);
+  const expected = publicQuestions([
+    { qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], answer: 'B', marks: 2 },
+    { qNo: 2, type: 'SHORT', text: 'Define NPV', options: [], answer: '', marks: 5 },
+  ], r.attemptId);
+  assert.deepEqual(r.questions, expected);
+  assert.deepEqual(api.start({ ...who, resumeToken: r.attemptId }).questions, r.questions);
+  assert.deepEqual(setup().api.start(who).questions[0].options.map((o) => o.letter), ['A', 'B', 'C', 'D']);
 });

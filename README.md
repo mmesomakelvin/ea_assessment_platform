@@ -103,6 +103,15 @@ To mark written answers, read the `Answers` column and add your marks in a new c
 
 For safety, only the browser that started a test can continue it, so nobody can open a classmate's test by typing their email. If a student's laptop dies and they need to continue on another device, type `Yes` in their `AllowNewDevice` cell. They can then continue on the new device once. **Their timer does not reset**: it kept running the whole time.
 
+### Students who try to leave the test
+
+No website can physically stop someone closing a tab, so the test page does the next best things:
+
+- A yellow notice on the test page: keep this page open until you submit; if you leave, the timer keeps running.
+- Closing or refreshing the page brings up the browser's "Leave site?" box.
+- The moment a student switches tab, minimises or closes the page, their answers are saved.
+- When they come back (from another tab, or by reopening the link and clicking Continue) a box says "Your test is still running" with the time left.
+
 ### Students who close the tab and never come back
 
 Every 5 minutes the system closes any test whose time has run out, using the student's last autosave. Their row changes to `AUTO_SUBMITTED` with a score, so you never have to chase unfinished rows.

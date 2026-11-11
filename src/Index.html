@@ -59,6 +59,12 @@
     .opt input { margin-top: 4px; }
     .opt.checked { border-color: var(--green); background: #F1F8EC; }
     .submitRow { display: flex; justify-content: flex-end; margin-top: 20px; }
+    .stayNotice { background: #FFF6D6; border: 1px solid #F2C94C; color: #5C4A00; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+    #awayDialog { position: fixed; inset: 0; z-index: 50; background: rgba(21, 75, 84, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    #awayDialog .box { background: #fff; border-radius: 12px; max-width: 440px; width: 100%; padding: 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+    #awayDialog h2 { margin: 0 0 8px; color: var(--teal); font-size: 1.15rem; }
+    #awayDialog p { margin: 0 0 16px; }
+    #awayDialog .left { font-weight: 700; font-variant-numeric: tabular-nums; }
     #confirmBox { margin-top: 12px; }
     #confirmBox .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
   </style>
@@ -97,6 +103,7 @@
 
     <!-- Exam screen -->
     <section id="examScreen" class="hidden">
+      <div class="stayNotice" role="note"><strong>Keep this page open until you submit.</strong> If you close or leave it, your timer keeps running and your answers are submitted automatically when time is up.</div>
       <form id="examForm" autocomplete="off"></form>
       <div class="submitRow"><button type="button" class="primary" id="submitBtn">Submit</button></div>
       <div id="confirmBox" class="card hidden">
@@ -115,6 +122,15 @@
       <p id="doneText"></p>
     </section>
   </main>
+
+  <div id="awayDialog" class="hidden" role="dialog" aria-modal="true" aria-labelledby="awayTitle">
+    <div class="box">
+      <h2 id="awayTitle">Your test is still running</h2>
+      <p id="awayText"></p>
+      <p>Time left: <span class="left" id="awayLeft"></span></p>
+      <div class="submitRow"><button type="button" class="primary" id="awayOk">Back to my test</button></div>
+    </div>
+  </div>
 
   <script><?!= clientHelpers ?></script>
   <script>
@@ -182,6 +198,7 @@
       call('apiStart', { assessmentId: BOOT.assessmentId, name: name, email: email, resumeToken: token }).then(function (r) {
         $('startBtn').disabled = false;
         if (!r.ok) { message($('startMsg'), r.message, true); return; }
+        state.returning = !!token && token === r.attemptId;
         remember(storageKey(email), r.attemptId);
         remember('ea:last:' + BOOT.assessmentId.toUpperCase(), JSON.stringify({ name: name, email: email }));
         putTokenInUrl(r.attemptId);
@@ -208,7 +225,27 @@
       tick();
       state.ticker = setInterval(tick, 500);
       state.saver = setInterval(autosave, AUTOSAVE_MS);
+      document.addEventListener('visibilitychange', onVisibility);
+      window.addEventListener('pagehide', onLeave);
+      if (state.returning) showAway('Welcome back. You left the test, but the timer did not stop while you were away. Please stay on this page until you submit.');
     }
+
+    // Students cannot be stopped from switching tabs or closing the page, so: save the moment they
+    // leave, and when they come back, tell them plainly that the test carried on without them.
+    function onLeave() { if (!state.finished) autosave(); }
+    function onVisibility() {
+      if (state.finished) return;
+      if (document.visibilityState === 'hidden') { onLeave(); return; }
+      showAway('You left the test page. The timer did not stop while you were away. Please stay on this page until you submit.');
+    }
+    function showAway(text) {
+      if (state.finished) return;
+      $('awayText').textContent = text;
+      $('awayLeft').textContent = formatRemaining(state.endLocal - Date.now());
+      $('awayDialog').classList.remove('hidden');
+      $('awayOk').focus();
+    }
+    $('awayOk').addEventListener('click', function () { $('awayDialog').classList.add('hidden'); });
 
     function renderQuestions(questions, saved) {
       var form = $('examForm');
@@ -284,6 +321,7 @@
     function tick() {
       var left = state.endLocal - Date.now();
       $('clock').textContent = formatRemaining(left);
+      if (!$('awayDialog').classList.contains('hidden')) $('awayLeft').textContent = formatRemaining(left);
       $('timerBar').classList.toggle('low', left < 5 * 60000);
       if (!state.warned5 && left <= 5 * 60000 && left > 60000) { state.warned5 = true; banner('5 minutes left'); }
       if (!state.warned1 && left <= 60000 && left > 0) { state.warned1 = true; state.warned5 = true; banner('1 minute left'); }
@@ -340,6 +378,9 @@
 
     function finish(text) {
       window.removeEventListener('beforeunload', warnOnLeave);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', onLeave);
+      $('awayDialog').classList.add('hidden');
       $('timerBar').classList.add('hidden');
       $('banner').innerHTML = '';
       $('doneText').textContent = text;

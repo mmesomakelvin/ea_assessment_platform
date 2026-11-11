@@ -92,7 +92,22 @@ Find your web app address in the Apps Script editor under **Deploy > Manage depl
 - Or set `OpensAt` and `ClosesAt` and leave Status as `Open`.
 - Closing only stops **new** starts. A student already writing keeps their own deadline (but never past `ClosesAt`).
 
-### 6. Read the results (tab `Attempts`, one row per student)
+### 6. Read the results (tab `Results`)
+
+`Results` has one clean line per finished test, added the moment a student submits or their time runs out:
+
+| Column | Meaning |
+|---|---|
+| StudentId | The student's email. This is their ID. |
+| FullName | The name they typed |
+| Assessment, AssessmentId | Which assessment they took |
+| Score, OutOf, Percent | Marks from the multiple-choice questions |
+| Status | `SUBMITTED` (on time) or `AUTO_SUBMITTED` (time ran out) |
+| SubmittedAt | When it was accepted |
+| TimesLeftPage | How often they left the test page |
+| NeedsManualMarking | `Yes` if there are written answers for you to mark (see `Attempts` for the answers) |
+
+### The full record (tab `Attempts`, one row per student)
 
 | Column | Meaning |
 |---|---|

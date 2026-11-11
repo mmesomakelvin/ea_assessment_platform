@@ -64,7 +64,10 @@ function createApi(deps) {
     attempt.needsManual = g.needsManual;
     attempt.answersText = formatAnswersForSheet(questions, attempt.answers);
     // Writes only if the row still says IN_PROGRESS right now, so two closers can never clash.
-    return store.finaliseAttempt(attempt);
+    if (!store.finaliseAttempt(attempt)) return false;
+    var assessment = store.getAssessment(attempt.assessmentId);
+    store.saveResult(attempt, assessment ? assessment.title : attempt.assessmentId);
+    return true;
   }
 
   function examPayload(assessment, questions, attempt, t) {

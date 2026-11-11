@@ -8,6 +8,7 @@ var TABS = {
   questions: 'Questions',
   attempts: 'Attempts',
   roster: 'Roster',
+  results: 'Results',
 };
 
 var HEADERS = {
@@ -17,6 +18,8 @@ var HEADERS = {
     'AutoScore', 'AutoMax', 'NeedsManualMarking', 'Answers', 'AnswersJSON', 'LastSavedAt', 'AllowNewDevice',
     'TimesLeftPage'],
   Roster: ['AssessmentId', 'Email', 'Name'],
+  Results: ['StudentId', 'FullName', 'Assessment', 'AssessmentId', 'Score', 'OutOf', 'Percent',
+    'Status', 'SubmittedAt', 'TimesLeftPage', 'NeedsManualMarking', 'AttemptId'],
 };
 
 // Full-row writes cover the first 15 Attempts columns only. TimesLeftPage (column 16) is
@@ -112,6 +115,25 @@ function attemptToRow(a) {
     asText(JSON.stringify(a.answers || {})),
     blankIfNull(a.lastSavedAt),
     a.allowNewDevice ? 'Yes' : '',
+  ];
+}
+
+// One readable line per finished test for the Results tab. The email is the student's ID.
+function resultRow(attempt, assessmentTitle, timesLeft) {
+  var percent = attempt.autoMax ? Math.round((attempt.autoScore / attempt.autoMax) * 1000) / 10 : '';
+  return [
+    asText(attempt.email),
+    asText(attempt.name),
+    asText(assessmentTitle),
+    attempt.assessmentId,
+    attempt.autoScore,
+    attempt.autoMax,
+    percent,
+    attempt.status,
+    attempt.submittedAt,
+    Number(timesLeft) || 0,
+    attempt.needsManual ? 'Yes' : 'No',
+    attempt.attemptId,
   ];
 }
 
@@ -214,6 +236,22 @@ function sheetStore() {
       sheet.getRange(rowIndex, 1, 1, ATTEMPT_ROW_WIDTH).setValues([attemptToRow(attempt)]);
       return true;
     },
+    // Adds (or refreshes) the student's line in the Results tab.
+    saveResult: function (attempt, assessmentTitle) {
+      var attemptsSheet = ss.getSheetByName(TABS.attempts);
+      var attemptRow = attemptRowIndex(attempt.attemptId);
+      var timesLeft = attemptRow === -1 ? 0 : attemptsSheet.getRange(attemptRow, 16).getValue();
+      var sheet = ss.getSheetByName(TABS.results);
+      if (!sheet) return;
+      var width = HEADERS.Results.length;
+      var at = -1;
+      if (sheet.getLastRow() >= 2) {
+        var ids = sheet.getRange(2, width, sheet.getLastRow() - 1, 1).getValues();
+        for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === attempt.attemptId) at = i + 2;
+      }
+      if (at === -1) at = sheet.getLastRow() + 1;
+      sheet.getRange(at, 1, 1, width).setValues([resultRow(attempt, assessmentTitle, timesLeft)]);
+    },
     rosterFor: function (assessmentId) {
       return rosterEmails(rows(TABS.roster), assessmentId);
     },
@@ -245,6 +283,7 @@ if (typeof module !== 'undefined') {
     HEADERS: HEADERS,
     ATTEMPT_ROW_WIDTH: ATTEMPT_ROW_WIDTH,
     rosterEmails: rosterEmails,
+    resultRow: resultRow,
     asText: asText,
     rowToAssessment: rowToAssessment,
     rowToQuestion: rowToQuestion,

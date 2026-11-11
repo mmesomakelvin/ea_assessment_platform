@@ -125,6 +125,7 @@ function setup() {
   ss.getSheetByName('Assessments').getRange('D:E').setNumberFormat('yyyy-mm-dd hh:mm');
   ss.getSheetByName('Attempts').getRange('E:G').setNumberFormat('yyyy-mm-dd hh:mm:ss');
   ss.getSheetByName('Attempts').getRange('N:N').setNumberFormat('yyyy-mm-dd hh:mm:ss');
+  ss.getSheetByName('Results').getRange('I:I').setNumberFormat('yyyy-mm-dd hh:mm:ss');
 
   // Each real assessment gets an internal test twin (always Open, unguessable id) beside the
   // external one students use.

@@ -268,3 +268,19 @@ test('recordLeave counts each time a student leaves an unfinished test', () => {
   assert.equal(store.leaves[r.attemptId], 2);
   assert.equal(api.recordLeave({ attemptId: 'nope' }).message, 'Attempt not found. Please reopen the assessment link.');
 });
+
+test('every finished test gets one line in Results with the assessment title and score', () => {
+  const { api, store, setClock } = setup();
+  const a = api.start(who);
+  setClock(plus(5 * MIN));
+  api.submit({ attemptId: a.attemptId, answers: { '1': 'B' } });
+  api.submit({ attemptId: a.attemptId, answers: { '1': 'B' } }); // second submit adds nothing
+  const b = api.start({ ...who, email: 'gone@mail.com' });
+  setClock(plus(60 * MIN));
+  api.finaliseExpired();
+  assert.equal(store.results.length, 2);
+  assert.deepEqual(store.results.map((r) => [r.attemptId, r.title, r.status, r.autoScore, r.autoMax]), [
+    [a.attemptId, 'Week 3 Quiz', 'SUBMITTED', 2, 2],
+    [b.attemptId, 'Week 3 Quiz', 'AUTO_SUBMITTED', 0, 2],
+  ]);
+});

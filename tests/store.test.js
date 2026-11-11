@@ -85,3 +85,14 @@ test('Attempts has a TimesLeftPage column after the 15 the system rewrites', () 
   assert.equal(S.ATTEMPT_ROW_WIDTH, 15);
   assert.deepEqual(S.HEADERS.Roster, ['AssessmentId', 'Email', 'Name']);
 });
+
+test('resultRow gives a readable results line with the email as the student ID', () => {
+  const done = { ...ATT, autoScore: 34, autoMax: 50, needsManual: false };
+  assert.deepEqual(S.resultRow(done, 'BAS Intermediate', 3), [
+    "'ana@mail.com", "'Ana Obi", "'BAS Intermediate", 'AP-WK3', 34, 50, 68, 'SUBMITTED', ATT.submittedAt, 3, 'No', 'att-1',
+  ]);
+  assert.equal(S.resultRow({ ...done, autoScore: 0, autoMax: 0 }, 'T', 0)[6], '');
+  assert.equal(S.resultRow({ ...done, autoScore: 1, autoMax: 3 }, 'T', 0)[6], 33.3);
+  assert.deepEqual(S.HEADERS.Results, ['StudentId', 'FullName', 'Assessment', 'AssessmentId', 'Score', 'OutOf', 'Percent',
+    'Status', 'SubmittedAt', 'TimesLeftPage', 'NeedsManualMarking', 'AttemptId']);
+});

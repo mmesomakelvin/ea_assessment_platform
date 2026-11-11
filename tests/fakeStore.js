@@ -1,10 +1,19 @@
-// In-memory stand-in for sheetStore() (src/Store.js). Same eight methods.
+// In-memory stand-in for sheetStore() (src/Store.js). Same ten methods.
 // Stores and returns copies so tests can only change state through the API.
-function makeFakeStore({ assessments = [], questions = [] }) {
+function makeFakeStore({ assessments = [], questions = [], roster = [] }) {
   const attempts = [];
+  const leaves = {};
   const copy = (x) => (x == null ? null : structuredClone(x));
   return {
     attempts,
+    leaves,
+    rosterFor: (assessmentId) => roster.filter((r) => r.assessmentId === assessmentId).map((r) => r.email.trim().toLowerCase()),
+    incrementLeaves: (attemptId) => {
+      const stored = attempts.find((a) => a.attemptId === attemptId);
+      if (!stored || stored.status !== 'IN_PROGRESS') return false;
+      leaves[attemptId] = (leaves[attemptId] || 0) + 1;
+      return true;
+    },
     getAssessment: (id) => copy(assessments.find((a) => a.id === id)),
     getQuestions: (assessmentId) =>
       copy(questions.filter((q) => q.assessmentId === assessmentId).sort((a, b) => a.qNo - b.qNo)),

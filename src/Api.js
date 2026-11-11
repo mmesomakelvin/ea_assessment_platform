@@ -15,6 +15,7 @@ var MESSAGES = {
   lateSubmit: 'Time was up. Your answers saved before the deadline were submitted.',
   anotherDevice: 'This email has already started this assessment on another device or browser. Please continue there, or ask your instructor to allow a new device.',
   generic: 'Something went wrong. Please try again.',
+  notOnRoster: 'This email is not on the list for this assessment. Please use the email address you registered with, or ask your instructor.',
 };
 
 // Keep only answers to real questions: a valid letter for MCQ, capped text for written answers.
@@ -91,6 +92,11 @@ function createApi(deps) {
     var name = String(p.name || '').trim();
     var email = normaliseEmail(p.email);
     if (!name || !isValidEmail(email)) return { ok: false, message: MESSAGES.badDetails };
+
+    // If the teacher listed students for this assessment in the Roster tab, only they can start,
+    // so nobody gets a second try by typing a different email.
+    var roster = store.rosterFor(a.id);
+    if (roster.length && roster.indexOf(email) === -1) return { ok: false, message: MESSAGES.notOnRoster };
 
     var questions = store.getQuestions(a.id);
 
@@ -185,7 +191,16 @@ function createApi(deps) {
     return count;
   }
 
-  return { info: info, start: start, save: save, submit: submit, finaliseExpired: finaliseExpired };
+  // Counts each time a student leaves an unfinished test page (switches tab, minimises, closes).
+  function recordLeave(payload) {
+    var p = payload || {};
+    var attempt = store.getAttempt(String(p.attemptId || ''));
+    if (!attempt) return { ok: false, message: MESSAGES.attemptNotFound };
+    if (attempt.status !== 'IN_PROGRESS') return { ok: true, counted: false };
+    return { ok: true, counted: store.incrementLeaves(attempt.attemptId) };
+  }
+
+  return { info: info, start: start, save: save, submit: submit, finaliseExpired: finaliseExpired, recordLeave: recordLeave };
 }
 
 if (typeof module !== 'undefined') {

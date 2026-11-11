@@ -8,8 +8,9 @@ const T0 = new Date('2026-11-12T10:00:00Z');
 const plus = (ms) => new Date(T0.getTime() + ms);
 const MIN = 60000;
 
-function setup(overrides = {}) {
+function setup(overrides = {}, roster = []) {
   const store = makeFakeStore({
+    roster,
     assessments: [{ id: 'AP-WK3', title: 'Week 3 Quiz', durationMinutes: 45, opensAt: null, closesAt: null, status: 'Open', ...overrides }],
     questions: [
       { assessmentId: 'AP-WK3', qNo: 1, type: 'MCQ', text: '2+2?', options: ['3', '4', '5', '6'], answer: 'B', marks: 2 },
@@ -245,4 +246,25 @@ test('finaliseExpired never overwrites a row that was submitted after the job re
   assert.equal(api.finaliseExpired(), 0);
   assert.equal(store.attempts[0].status, 'SUBMITTED');
   assert.equal(store.attempts[0].autoScore, 2);
+});
+
+const NOT_ON_ROSTER = 'This email is not on the list for this assessment. Please use the email address you registered with, or ask your instructor.';
+
+test('with a roster, only listed emails can start', () => {
+  const roster = [{ assessmentId: 'AP-WK3', email: 'ana@mail.com' }];
+  assert.deepEqual(setup({}, roster).api.start({ ...who, email: 'someone.else@mail.com' }), { ok: false, message: NOT_ON_ROSTER });
+  assert.equal(setup({}, roster).api.start({ ...who, email: ' ANA@mail.com ' }).ok, true);
+  assert.equal(setup({}, [{ assessmentId: 'OTHER', email: 'x@y.co' }]).api.start(who).ok, true);
+});
+
+test('recordLeave counts each time a student leaves an unfinished test', () => {
+  const { api, store } = setup();
+  const r = api.start(who);
+  assert.deepEqual(api.recordLeave({ attemptId: r.attemptId }), { ok: true, counted: true });
+  api.recordLeave({ attemptId: r.attemptId });
+  assert.equal(store.leaves[r.attemptId], 2);
+  api.submit({ attemptId: r.attemptId, answers: {} });
+  assert.deepEqual(api.recordLeave({ attemptId: r.attemptId }), { ok: true, counted: false });
+  assert.equal(store.leaves[r.attemptId], 2);
+  assert.equal(api.recordLeave({ attemptId: 'nope' }).message, 'Attempt not found. Please reopen the assessment link.');
 });

@@ -73,3 +73,15 @@ test('internalTestCopy makes an open [INTERNAL TEST] twin with an unguessable id
   assert.equal(seed.assessment[0], 'BAS-INT');
   assert.equal(seed.questions[0][0], 'BAS-INT');
 });
+
+test('rosterEmails lists normalised emails for one assessment only', () => {
+  const rows = [['BAS-INT', ' Ana@Mail.com ', 'Ana'], ['bas-int', 'b@x.co', ''], ['OTHER', 'c@x.co', ''], ['BAS-INT', '', 'blank']];
+  assert.deepEqual(S.rosterEmails(rows, 'BAS-INT'), ['ana@mail.com', 'b@x.co']);
+  assert.deepEqual(S.rosterEmails(rows, 'NONE'), []);
+});
+
+test('Attempts has a TimesLeftPage column after the 15 the system rewrites', () => {
+  assert.equal(S.HEADERS.Attempts[15], 'TimesLeftPage');
+  assert.equal(S.ATTEMPT_ROW_WIDTH, 15);
+  assert.deepEqual(S.HEADERS.Roster, ['AssessmentId', 'Email', 'Name']);
+});

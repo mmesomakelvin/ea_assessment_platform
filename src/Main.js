@@ -62,6 +62,10 @@ function apiSubmit(payload) {
   return runGuarded(function () { return buildApi_().submit(payload); }, logError_);
 }
 
+function apiLeft(payload) {
+  return runGuarded(function () { return buildApi_().recordLeave(payload); }, logError_);
+}
+
 /**
  * Runs every 5 minutes (installed by setup): closes tests whose time ran out but were never
  * submitted (tab closed, lost connection), using the last autosave. Anyone can technically call

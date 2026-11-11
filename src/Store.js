@@ -7,14 +7,21 @@ var TABS = {
   assessments: 'Assessments',
   questions: 'Questions',
   attempts: 'Attempts',
+  roster: 'Roster',
 };
 
 var HEADERS = {
   Assessments: ['AssessmentId', 'Title', 'DurationMinutes', 'OpensAt', 'ClosesAt', 'Status', 'Shuffle'],
   Questions: ['AssessmentId', 'QNo', 'Type', 'Question', 'OptionA', 'OptionB', 'OptionC', 'OptionD', 'Answer', 'Marks', 'Section'],
   Attempts: ['AttemptId', 'AssessmentId', 'Name', 'Email', 'StartedAt', 'DeadlineAt', 'SubmittedAt', 'Status',
-    'AutoScore', 'AutoMax', 'NeedsManualMarking', 'Answers', 'AnswersJSON', 'LastSavedAt', 'AllowNewDevice'],
+    'AutoScore', 'AutoMax', 'NeedsManualMarking', 'Answers', 'AnswersJSON', 'LastSavedAt', 'AllowNewDevice',
+    'TimesLeftPage'],
+  Roster: ['AssessmentId', 'Email', 'Name'],
 };
+
+// Full-row writes cover the first 15 Attempts columns only. TimesLeftPage (column 16) is
+// changed only by incrementLeaves, so a full-row write can never reset the count.
+var ATTEMPT_ROW_WIDTH = 15;
 
 function cellText_(v) {
   return v === null || v === undefined ? '' : String(v).trim();
@@ -130,6 +137,12 @@ function rowToAttempt(row) {
   };
 }
 
+function rosterEmails(rows, assessmentId) {
+  return rows
+    .filter(function (r) { return sameId_(r[0], assessmentId) && cellText_(r[1]) !== ''; })
+    .map(function (r) { return cellText_(r[1]).toLowerCase(); });
+}
+
 function sameId_(a, b) {
   return cellText_(a).toUpperCase() === cellText_(b).toUpperCase();
 }
@@ -198,7 +211,19 @@ function sheetStore() {
       var rowIndex = attemptRowIndex(attempt.attemptId);
       if (rowIndex === -1) return false;
       if (String(sheet.getRange(rowIndex, 8).getValue()) !== 'IN_PROGRESS') return false;
-      sheet.getRange(rowIndex, 1, 1, HEADERS.Attempts.length).setValues([attemptToRow(attempt)]);
+      sheet.getRange(rowIndex, 1, 1, ATTEMPT_ROW_WIDTH).setValues([attemptToRow(attempt)]);
+      return true;
+    },
+    rosterFor: function (assessmentId) {
+      return rosterEmails(rows(TABS.roster), assessmentId);
+    },
+    incrementLeaves: function (attemptId) {
+      var sheet = ss.getSheetByName(TABS.attempts);
+      var rowIndex = attemptRowIndex(attemptId);
+      if (rowIndex === -1) return false;
+      if (String(sheet.getRange(rowIndex, 8).getValue()) !== 'IN_PROGRESS') return false;
+      var cell = sheet.getRange(rowIndex, 16);
+      cell.setValue((Number(cell.getValue()) || 0) + 1);
       return true;
     },
     inProgressAttempts: function () {
@@ -210,7 +235,7 @@ function sheetStore() {
       var sheet = ss.getSheetByName(TABS.attempts);
       var rowIndex = attemptRowIndex(attempt.attemptId);
       if (rowIndex === -1) rowIndex = sheet.getLastRow() + 1;
-      sheet.getRange(rowIndex, 1, 1, HEADERS.Attempts.length).setValues([attemptToRow(attempt)]);
+      sheet.getRange(rowIndex, 1, 1, ATTEMPT_ROW_WIDTH).setValues([attemptToRow(attempt)]);
     },
   };
 }
@@ -218,6 +243,8 @@ function sheetStore() {
 if (typeof module !== 'undefined') {
   module.exports = {
     HEADERS: HEADERS,
+    ATTEMPT_ROW_WIDTH: ATTEMPT_ROW_WIDTH,
+    rosterEmails: rosterEmails,
     asText: asText,
     rowToAssessment: rowToAssessment,
     rowToQuestion: rowToQuestion,

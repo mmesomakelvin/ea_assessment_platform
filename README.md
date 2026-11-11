@@ -66,7 +66,17 @@ Examples:
 
 **Tip:** if a question or option starts with `=` (for example an Excel formula such as `=PMT(...)`), type an apostrophe first: `'=PMT(24%/12,36,-5000000)`. Otherwise Google Sheets tries to calculate it.
 
-### 3. Share the link
+### 3. Optional: limit it to your students (tab `Roster`)
+
+One attempt per email is always enforced. To stop a student taking a second attempt with a different email, list your students in the `Roster` tab, one row each:
+
+| AssessmentId | Email | Name |
+|---|---|---|
+| BAS-INT | ada.obi@example.com | Ada Obi |
+
+If an assessment has any rows in `Roster`, only those emails can start it; anyone else sees "This email is not on the list for this assessment". If it has no rows, anyone with the link can start. Leave the internal `-TEST-` copy off the roster so staff can always try it.
+
+### 4. Share the link
 
 The student link is your web app address with `?a=` and the AssessmentId on the end:
 
@@ -76,13 +86,13 @@ https://script.google.com/macros/s/<your deployment id>/exec?a=AP-WK3
 
 Find your web app address in the Apps Script editor under **Deploy > Manage deployments**. Keep it out of public places: anyone with the link and an open AssessmentId can start a test.
 
-### 4. Open and close it
+### 5. Open and close it
 
 - Set `Status` to `Open` when students should be able to start, and to `Closed` when you are done.
 - Or set `OpensAt` and `ClosesAt` and leave Status as `Open`.
 - Closing only stops **new** starts. A student already writing keeps their own deadline (but never past `ClosesAt`).
 
-### 5. Read the results (tab `Attempts`, one row per student)
+### 6. Read the results (tab `Attempts`, one row per student)
 
 | Column | Meaning |
 |---|---|
@@ -96,6 +106,7 @@ Find your web app address in the Apps Script editor under **Deploy > Manage depl
 | AnswersJSON | The same answers in a format the system reads back. Do not edit. |
 | LastSavedAt | The last autosave |
 | AllowNewDevice | See below |
+| TimesLeftPage | How many times the student left the test page (switched tab, minimised or closed it) while the test was running |
 
 To mark written answers, read the `Answers` column and add your marks in a new column to the right (the system never touches columns after `AllowNewDevice`).
 
@@ -107,10 +118,12 @@ For safety, only the browser that started a test can continue it, so nobody can 
 
 No website can physically stop someone closing a tab, so the test page does the next best things:
 
+- Before the timer starts, a "Before you begin" box tells the student the length of the test, that they have one attempt only, that the timer cannot be paused, that unfinished answers are submitted automatically when time is up, and that leaving the page is recorded. They must click "I understand, start".
 - A yellow notice on the test page: keep this page open until you submit; if you leave, the timer keeps running.
 - Closing or refreshing the page brings up the browser's "Leave site?" box.
 - The moment a student switches tab, minimises or closes the page, their answers are saved.
 - When they come back (from another tab, or by reopening the link and clicking Continue) a box says "Your test is still running" with the time left.
+- Every departure is counted in the `TimesLeftPage` column.
 
 ### Students who close the tab and never come back
 

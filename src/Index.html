@@ -60,10 +60,13 @@
     .opt.checked { border-color: var(--green); background: #F1F8EC; }
     .submitRow { display: flex; justify-content: flex-end; margin-top: 20px; }
     .stayNotice { background: #FFF6D6; border: 1px solid #F2C94C; color: #5C4A00; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
-    #awayDialog { position: fixed; inset: 0; z-index: 50; background: rgba(21, 75, 84, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
-    #awayDialog .box { background: #fff; border-radius: 12px; max-width: 440px; width: 100%; padding: 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
-    #awayDialog h2 { margin: 0 0 8px; color: var(--teal); font-size: 1.15rem; }
-    #awayDialog p { margin: 0 0 16px; }
+    #awayDialog, #beginDialog { position: fixed; inset: 0; z-index: 50; background: rgba(21, 75, 84, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    #awayDialog .box, #beginDialog .box { background: #fff; border-radius: 12px; max-width: 440px; width: 100%; padding: 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+    #awayDialog h2, #beginDialog h2 { margin: 0 0 8px; color: var(--teal); font-size: 1.15rem; }
+    #awayDialog p, #beginDialog p { margin: 0 0 16px; }
+    #beginDialog ul { margin: 0 0 16px; padding-left: 20px; }
+    #beginDialog li { margin-bottom: 6px; }
+    .dialogActions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
     #awayDialog .left { font-weight: 700; font-variant-numeric: tabular-nums; }
     #confirmBox { margin-top: 12px; }
     #confirmBox .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
@@ -123,6 +126,23 @@
     </section>
   </main>
 
+  <div id="beginDialog" class="hidden" role="dialog" aria-modal="true" aria-labelledby="beginTitle">
+    <div class="box">
+      <h2 id="beginTitle">Before you begin</h2>
+      <ul>
+        <li>This assessment is <strong id="beginMinutes"></strong> long.</li>
+        <li>You have <strong>one attempt only</strong>.</li>
+        <li>The timer starts as soon as you click Start and <strong>cannot be paused</strong>.</li>
+        <li>If you are not done when the time is up, <strong>your answers are submitted automatically</strong>.</li>
+        <li>Keep this page open until you submit. Leaving the page is recorded.</li>
+      </ul>
+      <div class="dialogActions">
+        <button type="button" class="ghost" id="beginCancel">Not yet</button>
+        <button type="button" class="primary" id="beginOk">I understand, start</button>
+      </div>
+    </div>
+  </div>
+
   <div id="awayDialog" class="hidden" role="dialog" aria-modal="true" aria-labelledby="awayTitle">
     <div class="box">
       <h2 id="awayTitle">Your test is still running</h2>
@@ -171,7 +191,8 @@
       call('apiInfo', BOOT.assessmentId).then(function (r) {
         if (!r.ok) { message($('infoScreen'), r.message, true); return; }
         $('startTitle').textContent = r.title;
-        $('startNote').textContent = 'You will have ' + r.durationMinutes + ' minutes once you click Start. The timer cannot be paused.';
+        state.durationMinutes = r.durationMinutes;
+        $('startNote').textContent = 'You have one attempt and ' + r.durationMinutes + ' minutes. The timer starts when you click Start, cannot be paused, and your answers are submitted automatically when time is up.';
         var last = recall('ea:last:' + BOOT.assessmentId.toUpperCase());
         if (last) {
           try { var who = JSON.parse(last); $('name').value = who.name || ''; $('email').value = who.email || ''; } catch (e) {}
@@ -192,9 +213,18 @@
         message($('startMsg'), 'Please enter your full name and a valid email address.', true);
         return;
       }
-      $('startBtn').disabled = true;
-      message($('startMsg'), 'Starting…');
       var token = recall(storageKey(email)) || BOOT.resumeToken || '';
+      if (token) { startNow(name, email, token); return; } // returning: no need to confirm again
+      $('beginMinutes').textContent = state.durationMinutes + (state.durationMinutes === 1 ? ' minute' : ' minutes');
+      $('beginDialog').classList.remove('hidden');
+      $('beginOk').focus();
+      $('beginOk').onclick = function () { $('beginDialog').classList.add('hidden'); startNow(name, email, ''); };
+    });
+    $('beginCancel').addEventListener('click', function () { $('beginDialog').classList.add('hidden'); });
+
+    function startNow(name, email, token) {
+      $('startBtn').disabled = true;
+      message($('startMsg'), 'Starting\u2026');
       call('apiStart', { assessmentId: BOOT.assessmentId, name: name, email: email, resumeToken: token }).then(function (r) {
         $('startBtn').disabled = false;
         if (!r.ok) { message($('startMsg'), r.message, true); return; }
@@ -207,7 +237,7 @@
         $('startBtn').disabled = false;
         message($('startMsg'), 'We could not reach the server. Please try again.', true);
       });
-    });
+    }
 
     // ---- exam screen ----
     function beginExam(r) {
@@ -232,10 +262,16 @@
 
     // Students cannot be stopped from switching tabs or closing the page, so: save the moment they
     // leave, and when they come back, tell them plainly that the test carried on without them.
-    function onLeave() { if (!state.finished) autosave(); }
+    function onLeave() {
+      if (state.finished || state.away) return;
+      state.away = true;
+      call('apiLeft', { attemptId: state.attemptId }).catch(function () {});
+      autosave();
+    }
     function onVisibility() {
       if (state.finished) return;
       if (document.visibilityState === 'hidden') { onLeave(); return; }
+      state.away = false;
       showAway('You left the test page. The timer did not stop while you were away. Please stay on this page until you submit.');
     }
     function showAway(text) {

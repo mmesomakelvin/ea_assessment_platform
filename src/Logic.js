@@ -41,6 +41,11 @@ function formatRemaining(ms) {
   return (h > 0 ? h + ':' : '') + pad(m) + ':' + pad(s);
 }
 
+// JSON that is safe to drop inside a <script> tag (no "<" can end the tag early).
+function safeJsonForScript(obj) {
+  return JSON.stringify(obj).replace(/</g, '\\u003c');
+}
+
 function byQNo(questions) {
   return questions.slice().sort(function (a, b) { return a.qNo - b.qNo; });
 }
@@ -75,6 +80,7 @@ function formatAnswersForSheet(questions, answers) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
+    safeJsonForScript: safeJsonForScript,
     publicQuestions: publicQuestions,
     gradeAnswers: gradeAnswers,
     formatAnswersForSheet: formatAnswersForSheet,

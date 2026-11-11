@@ -8,8 +8,10 @@ var GENERIC_ERROR = 'Something went wrong. Please try again.';
 function doGet(e) {
   var t = HtmlService.createTemplateFromFile('Index');
   var params = (e && e.parameter) || {};
-  t.assessmentId = String(params.a || '').trim();
-  t.resumeToken = String(params.t || '').trim();
+  t.boot = safeJsonForScript({
+    assessmentId: String(params.a || '').trim(),
+    resumeToken: String(params.t || '').trim(),
+  });
   t.clientHelpers = formatRemaining.toString();
   return t.evaluate()
     .setTitle('EduBridge Assessment')

@@ -1,2 +1,340 @@
 <!DOCTYPE html>
-<html><body><p>Assessment <?= assessmentId ?></p></body></html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #154B54;
+      --teal-soft: #E8F0F1;
+      --green: #5EB229;
+      --green-dark: #4A9220;
+      --red: #C0392B;
+      --ink: #1F2A2E;
+      --muted: #5B6B70;
+      --line: #D5DFE1;
+      --bg: #F5F8F8;
+      --card: #FFFFFF;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Montserrat, Arial, sans-serif; color: var(--ink); background: var(--bg); line-height: 1.5; }
+    header { background: var(--teal); color: #fff; padding: 14px 16px; }
+    header .brand { max-width: 760px; margin: 0 auto; font-weight: 700; letter-spacing: .3px; }
+    main { max-width: 760px; margin: 0 auto; padding: 20px 16px 80px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; color: var(--teal); }
+    h2.section { font-size: 1rem; color: var(--teal); margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--green); }
+    p.note { color: var(--muted); margin: 6px 0 16px; }
+    label.field { display: block; font-weight: 600; margin: 14px 0 6px; }
+    input[type=text], input[type=email], textarea {
+      width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: #fff;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 12px 20px; cursor: pointer; }
+    button.primary { background: var(--green); color: #fff; }
+    button.primary:hover { background: var(--green-dark); }
+    button.ghost { background: transparent; color: var(--teal); border: 1px solid var(--teal); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .msg { padding: 12px 14px; border-radius: 8px; margin: 12px 0; background: var(--teal-soft); color: var(--teal); }
+    .msg.error { background: #FBEAEA; color: var(--red); }
+    .hidden { display: none !important; }
+
+    #timerBar { position: sticky; top: 0; z-index: 10; background: var(--teal); color: #fff; }
+    #timerBar .inner { max-width: 760px; margin: 0 auto; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    #timerBar .title { font-weight: 600; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #clock { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    #timerBar.low { background: var(--red); }
+    #banner { max-width: 760px; margin: 0 auto; }
+    #saveStatus { font-size: .8rem; opacity: .85; }
+
+    .q { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .q .qhead { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; margin-bottom: 10px; }
+    .q .marks { color: var(--muted); font-weight: 500; font-size: .85rem; white-space: nowrap; }
+    .opt { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; margin: 6px 0; cursor: pointer; }
+    .opt:hover { border-color: var(--teal); }
+    .opt input { margin-top: 4px; }
+    .opt.checked { border-color: var(--green); background: #F1F8EC; }
+    .submitRow { display: flex; justify-content: flex-end; margin-top: 20px; }
+    #confirmBox { margin-top: 12px; }
+    #confirmBox .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <header><div class="brand">EduBridge Academy &middot; Assessment</div></header>
+
+  <div id="timerBar" class="hidden">
+    <div class="inner">
+      <div>
+        <div class="title" id="examTitle"></div>
+        <div id="saveStatus"></div>
+      </div>
+      <div id="clock" aria-live="off">--:--</div>
+    </div>
+  </div>
+  <div id="banner"></div>
+
+  <main>
+    <!-- Start screen -->
+    <section id="startScreen" class="card hidden">
+      <h1 id="startTitle"></h1>
+      <p class="note" id="startNote"></p>
+      <form id="startForm" novalidate>
+        <label class="field" for="name">Full name</label>
+        <input type="text" id="name" autocomplete="name" required>
+        <label class="field" for="email">Email address</label>
+        <input type="email" id="email" autocomplete="email" required>
+        <div id="startMsg"></div>
+        <div class="submitRow"><button type="submit" class="primary" id="startBtn">Start</button></div>
+      </form>
+    </section>
+
+    <!-- Loading / message-only screen -->
+    <section id="infoScreen" class="card"><p class="note" id="infoText">Loading&hellip;</p></section>
+
+    <!-- Exam screen -->
+    <section id="examScreen" class="hidden">
+      <form id="examForm" autocomplete="off"></form>
+      <div class="submitRow"><button type="button" class="primary" id="submitBtn">Submit</button></div>
+      <div id="confirmBox" class="card hidden">
+        <strong>Submit now? You cannot change your answers after this.</strong>
+        <div class="actions">
+          <button type="button" class="ghost" id="cancelSubmit">Go back</button>
+          <button type="button" class="primary" id="confirmSubmit">Yes, submit</button>
+        </div>
+      </div>
+      <div id="examMsg"></div>
+    </section>
+
+    <!-- Done screen -->
+    <section id="doneScreen" class="card hidden">
+      <h1>Thank you</h1>
+      <p id="doneText"></p>
+    </section>
+  </main>
+
+  <script><?!= clientHelpers ?></script>
+  <script>
+    var BOOT = <?!= boot ?>;
+    var AUTOSAVE_MS = 60000;
+    var state = { attemptId: null, endLocal: 0, ticker: null, saver: null, finished: false, warned5: false, warned1: false, questions: [] };
+
+    function $(id) { return document.getElementById(id); }
+    function show(id) {
+      ['startScreen', 'infoScreen', 'examScreen', 'doneScreen'].forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
+    }
+    function message(el, text, isError) {
+      el.innerHTML = '';
+      if (!text) return;
+      var d = document.createElement('div');
+      d.className = 'msg' + (isError ? ' error' : '');
+      d.textContent = text;
+      el.appendChild(d);
+    }
+    function call(fn, arg) {
+      return new Promise(function (resolve, reject) {
+        google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](arg);
+      });
+    }
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    // ---- remembering this browser's attempt (so only it can resume) ----
+    function storageKey(email) { return 'ea:' + BOOT.assessmentId.toUpperCase() + ':' + email.trim().toLowerCase(); }
+    function remember(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+    function recall(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+    function putTokenInUrl(token) {
+      try { google.script.history.replace(null, { a: BOOT.assessmentId, t: token }); } catch (e) {}
+    }
+
+    // ---- start screen ----
+    function init() {
+      if (!BOOT.assessmentId) { message($('infoScreen'), 'This assessment link is not valid.', true); return; }
+      call('apiInfo', BOOT.assessmentId).then(function (r) {
+        if (!r.ok) { message($('infoScreen'), r.message, true); return; }
+        $('startTitle').textContent = r.title;
+        $('startNote').textContent = 'You will have ' + r.durationMinutes + ' minutes once you click Start. The timer cannot be paused.';
+        var last = recall('ea:last:' + BOOT.assessmentId.toUpperCase());
+        if (last) {
+          try { var who = JSON.parse(last); $('name').value = who.name || ''; $('email').value = who.email || ''; } catch (e) {}
+        }
+        show('startScreen');
+      }).catch(function () { message($('infoScreen'), 'We could not reach the server. Please refresh the page.', true); });
+    }
+
+    $('startForm').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var name = $('name').value.trim();
+      var email = $('email').value.trim();
+      if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        message($('startMsg'), 'Please enter your full name and a valid email address.', true);
+        return;
+      }
+      $('startBtn').disabled = true;
+      message($('startMsg'), 'Starting…');
+      var token = recall(storageKey(email)) || BOOT.resumeToken || '';
+      call('apiStart', { assessmentId: BOOT.assessmentId, name: name, email: email, resumeToken: token }).then(function (r) {
+        $('startBtn').disabled = false;
+        if (!r.ok) { message($('startMsg'), r.message, true); return; }
+        remember(storageKey(email), r.attemptId);
+        remember('ea:last:' + BOOT.assessmentId.toUpperCase(), JSON.stringify({ name: name, email: email }));
+        putTokenInUrl(r.attemptId);
+        beginExam(r);
+      }).catch(function () {
+        $('startBtn').disabled = false;
+        message($('startMsg'), 'We could not reach the server. Please try again.', true);
+      });
+    });
+
+    // ---- exam screen ----
+    function beginExam(r) {
+      state.attemptId = r.attemptId;
+      state.questions = r.questions;
+      state.endLocal = Date.now() + r.remainingMs; // server's remaining time; this computer's clock does not matter
+      $('examTitle').textContent = r.title;
+      renderQuestions(r.questions, r.answers || {});
+      $('timerBar').classList.remove('hidden');
+      show('examScreen');
+      window.addEventListener('beforeunload', warnOnLeave);
+      tick();
+      state.ticker = setInterval(tick, 500);
+      state.saver = setInterval(autosave, AUTOSAVE_MS);
+    }
+
+    function renderQuestions(questions, saved) {
+      var form = $('examForm');
+      form.innerHTML = '';
+      var lastSection = null;
+      questions.forEach(function (q) {
+        if (q.section && q.section !== lastSection) {
+          var h = document.createElement('h2');
+          h.className = 'section';
+          h.textContent = q.section;
+          form.appendChild(h);
+          lastSection = q.section;
+        }
+        var box = document.createElement('div');
+        box.className = 'q';
+        var head = document.createElement('div');
+        head.className = 'qhead';
+        var text = document.createElement('div');
+        text.textContent = q.qNo + '. ' + q.text;
+        var marks = document.createElement('div');
+        marks.className = 'marks';
+        marks.textContent = q.marks + (q.marks === 1 ? ' mark' : ' marks');
+        head.appendChild(text); head.appendChild(marks); box.appendChild(head);
+
+        var key = String(q.qNo);
+        if (q.type === 'MCQ') {
+          q.options.forEach(function (opt, i) {
+            if (opt === '') return; // keep letters stable when a middle option is blank
+            var letter = String.fromCharCode(65 + i);
+            var lab = document.createElement('label');
+            lab.className = 'opt';
+            var input = document.createElement('input');
+            input.type = 'radio'; input.name = 'q' + key; input.value = letter;
+            if (saved[key] === letter) { input.checked = true; lab.classList.add('checked'); }
+            input.addEventListener('change', function () {
+              box.querySelectorAll('.opt').forEach(function (o) { o.classList.remove('checked'); });
+              lab.classList.add('checked');
+            });
+            var span = document.createElement('span');
+            span.textContent = letter + '. ' + opt;
+            lab.appendChild(input); lab.appendChild(span); box.appendChild(lab);
+          });
+        } else {
+          var field = document.createElement(q.type === 'PARAGRAPH' ? 'textarea' : 'input');
+          if (q.type !== 'PARAGRAPH') field.type = 'text';
+          field.name = 'q' + key;
+          field.value = saved[key] || '';
+          field.setAttribute('aria-label', 'Answer to question ' + q.qNo);
+          box.appendChild(field);
+        }
+        form.appendChild(box);
+      });
+    }
+
+    function collectAnswers() {
+      var answers = {};
+      state.questions.forEach(function (q) {
+        var key = String(q.qNo);
+        if (q.type === 'MCQ') {
+          var picked = document.querySelector('input[name="q' + key + '"]:checked');
+          if (picked) answers[key] = picked.value;
+        } else {
+          var el = document.querySelector('[name="q' + key + '"]');
+          if (el && el.value.trim() !== '') answers[key] = el.value;
+        }
+      });
+      return answers;
+    }
+
+    function banner(text) { message($('banner'), text, true); setTimeout(function () { $('banner').innerHTML = ''; }, 15000); }
+
+    function tick() {
+      var left = state.endLocal - Date.now();
+      $('clock').textContent = formatRemaining(left);
+      $('timerBar').classList.toggle('low', left < 5 * 60000);
+      if (!state.warned5 && left <= 5 * 60000 && left > 60000) { state.warned5 = true; banner('5 minutes left'); }
+      if (!state.warned1 && left <= 60000 && left > 0) { state.warned1 = true; state.warned5 = true; banner('1 minute left'); }
+      if (left <= 0 && !state.finished) submitAnswers(true);
+    }
+
+    function autosave() {
+      if (state.finished) return;
+      call('apiSave', { attemptId: state.attemptId, answers: collectAnswers() }).then(function (r) {
+        if (r.ok) {
+          var d = new Date();
+          $('saveStatus').textContent = 'Saved at ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+        } else if (r.timeUp) {
+          submitAnswers(true);
+        }
+      }).catch(function () { $('saveStatus').textContent = 'Not saved, retrying…'; });
+    }
+
+    function lockForm() {
+      document.querySelectorAll('#examForm input, #examForm textarea, #submitBtn, #confirmSubmit, #cancelSubmit')
+        .forEach(function (el) { el.disabled = true; });
+    }
+
+    function submitAnswers(isAuto) {
+      if (state.finished) return;
+      state.finished = true;
+      clearInterval(state.ticker); clearInterval(state.saver);
+      var answers = collectAnswers();
+      lockForm();
+      $('confirmBox').classList.add('hidden');
+      message($('examMsg'), isAuto ? 'Time is up. Submitting your answers…' : 'Submitting…');
+      var attempt = function (n) {
+        return call('apiSubmit', { attemptId: state.attemptId, answers: answers }).catch(function (err) {
+          if (n >= 3) throw err;
+          return wait(3000).then(function () { return attempt(n + 1); });
+        });
+      };
+      attempt(1).then(function (r) {
+        if (!r.ok) { finish(r.message || 'We could not submit your answers. Your last autosaved answers will be used.'); return; }
+        finish(r.message || 'Your answers have been submitted. You can close this page.');
+      }).catch(function () {
+        finish('We could not reach the server. Your last autosaved answers will be used.');
+      });
+    }
+
+    function finish(text) {
+      window.removeEventListener('beforeunload', warnOnLeave);
+      $('timerBar').classList.add('hidden');
+      $('banner').innerHTML = '';
+      $('doneText').textContent = text;
+      show('doneScreen');
+      window.scrollTo(0, 0);
+    }
+
+    function warnOnLeave(e) { e.preventDefault(); e.returnValue = ''; return ''; }
+
+    $('submitBtn').addEventListener('click', function () { $('confirmBox').classList.remove('hidden'); $('confirmBox').scrollIntoView({ behavior: 'smooth' }); });
+    $('cancelSubmit').addEventListener('click', function () { $('confirmBox').classList.add('hidden'); });
+    $('confirmSubmit').addEventListener('click', function () { submitAnswers(false); });
+
+    init();
+  </script>
+</body>
+</html>

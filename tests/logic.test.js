@@ -74,3 +74,9 @@ test('formatAnswersForSheet lists every question in order', () => {
   assert.equal(L.formatAnswersForSheet(QS, { '3': 'Net present value', '1': 'B' }),
     '1: B\n2: (blank)\n3: Net present value');
 });
+
+test('safeJsonForScript cannot close the script tag', () => {
+  const out = L.safeJsonForScript({ assessmentId: '</script><script>alert(1)</script>', resumeToken: 'abc' });
+  assert.equal(out.includes('<'), false);
+  assert.deepEqual(JSON.parse(out), { assessmentId: '</script><script>alert(1)</script>', resumeToken: 'abc' });
+});

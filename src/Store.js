@@ -68,6 +68,16 @@ function questionRowForSheet(row) {
   return row.map(function (v, i) { return (i === 3 || (i >= 4 && i <= 7) || i === 10) ? asText(v) : v; });
 }
 
+// Every assessment ships in two versions: the external one students get, and an always-open
+// internal twin (<ID>-TEST) for staff to try, so test attempts never mix with real results.
+function internalTestCopy(seed) {
+  var id = seed.assessment[0] + '-TEST';
+  return {
+    assessment: [id, '[INTERNAL TEST] ' + seed.assessment[1]].concat(seed.assessment.slice(2, 5), ['Open']),
+    questions: seed.questions.map(function (row) { return [id].concat(row.slice(1)); }),
+  };
+}
+
 function attemptToRow(a) {
   var blankIfNull = function (v) { return v === null || v === undefined ? '' : v; };
   return [
@@ -178,6 +188,7 @@ if (typeof module !== 'undefined') {
     rowToAssessment: rowToAssessment,
     rowToQuestion: rowToQuestion,
     questionRowForSheet: questionRowForSheet,
+    internalTestCopy: internalTestCopy,
     attemptToRow: attemptToRow,
     rowToAttempt: rowToAttempt,
   };

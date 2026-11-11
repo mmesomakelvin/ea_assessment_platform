@@ -104,8 +104,10 @@ function setup() {
   ss.getSheetByName('Attempts').getRange('E:G').setNumberFormat('yyyy-mm-dd hh:mm:ss');
   ss.getSheetByName('Attempts').getRange('N:N').setNumberFormat('yyyy-mm-dd hh:mm:ss');
 
-  var seeds = [{ assessment: DEMO_ASSESSMENT_, questions: DEMO_QUESTIONS_ }]
-    .concat(typeof SEED_ASSESSMENTS !== 'undefined' ? SEED_ASSESSMENTS : []);
+  // Each real assessment gets an internal test twin (<ID>-TEST, always Open) next to the external one.
+  var real = typeof SEED_ASSESSMENTS !== 'undefined' ? SEED_ASSESSMENTS : [];
+  var seeds = [{ assessment: DEMO_ASSESSMENT_, questions: DEMO_QUESTIONS_ }];
+  real.forEach(function (seed) { seeds.push(internalTestCopy(seed), seed); });
   var added = [];
   seeds.forEach(function (seed) {
     if (addAssessmentIfMissing_(ss, seed)) added.push(seed.assessment[0]);

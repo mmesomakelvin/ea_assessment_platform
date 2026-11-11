@@ -57,3 +57,15 @@ test('questionRowForSheet keeps formulas like =PMT(...) as visible text', () => 
     S.questionRowForSheet(['BAS-INT', 43, 'MCQ', 'Which formula?', '=PMT(24%,3,-5000000)', 'b', '', '', 'D', 1, 'Section C']),
     ['BAS-INT', 43, 'MCQ', "'Which formula?", "'=PMT(24%,3,-5000000)", "'b", '', '', 'D', 1, "'Section C"]);
 });
+
+test('internalTestCopy makes an open [INTERNAL TEST] twin with the same questions', () => {
+  const seed = {
+    assessment: ['BAS-INT', 'BAS Intermediate', 60, '', '', 'Closed'],
+    questions: [['BAS-INT', 1, 'MCQ', 'Q?', 'a', 'b', '', '', 'A', 1, 'Section A']],
+  };
+  const copy = S.internalTestCopy(seed);
+  assert.deepEqual(copy.assessment, ['BAS-INT-TEST', '[INTERNAL TEST] BAS Intermediate', 60, '', '', 'Open']);
+  assert.deepEqual(copy.questions, [['BAS-INT-TEST', 1, 'MCQ', 'Q?', 'a', 'b', '', '', 'A', 1, 'Section A']]);
+  assert.equal(seed.assessment[0], 'BAS-INT');
+  assert.equal(seed.questions[0][0], 'BAS-INT');
+});

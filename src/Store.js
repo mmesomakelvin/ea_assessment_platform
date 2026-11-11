@@ -255,8 +255,14 @@ function sheetStore() {
       var line = resultRow(attempt, info, timesLeft);
       // appendRow is atomic: when a whole class submits in the same second, every student still
       // gets their own line (a computed "last row + 1" could be taken by two students at once).
-      if (at === -1) sheet.appendRow(line);
-      else sheet.getRange(at, 1, 1, width).setValues([line]);
+      if (at === -1) {
+        sheet.appendRow(line);
+        // appendRow resets date formats, so re-apply it to the whole SubmittedAt column.
+        var dateCol = HEADERS.Results.indexOf('SubmittedAt') + 1;
+        sheet.getRange(2, dateCol, sheet.getMaxRows() - 1, 1).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+      } else {
+        sheet.getRange(at, 1, 1, width).setValues([line]);
+      }
     },
     rosterFor: function (assessmentId) {
       return rosterEmails(rows(TABS.roster), assessmentId);
